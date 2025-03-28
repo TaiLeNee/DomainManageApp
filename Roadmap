@@ -1,0 +1,124 @@
+1. Entity (thực thể chính)
+
+    - User        // Người dùng, có phân quyền là Admin hoặc Buyer
+    - Domain      // Tên miền (do Admin quản lý và đưa lên bán)
+    - Order       // Đơn hàng (do Buyer tạo khi mua)
+    - Transaction // Lịch sử giao dịch
+    - Role        // Vai trò: ADMIN, BUYER
+    - Report      // Dữ liệu báo cáo xuất ra file
+2. Cấu trúc project (package)
+    src
+    ├── dao            // Xử lý JDBC, CRUD DB
+    ├── entity          // Các class Entity
+    ├── service        // Logic nghiệp vụ
+    ├── utils          // Tiện ích: export file, validate, exception
+    ├── view           // Swing UI
+    ├── controller     // Điều phối giao diện - nghiệp vụ
+    └── main           // MainApp.java
+
+3. Các chức năng chính
+3.1. Người dùng
+
+    Đăng ký (Buyer)
+
+    Đăng nhập
+
+    Phân quyền (hiển thị giao diện khác nhau):
+
+    Admin: Quản lý tên miền, đơn hàng, xem báo cáo
+
+    Buyer: Xem tên miền, đặt mua
+
+3.2. CRUD
+
+    CRUD User (Admin được phép)
+
+    CRUD Domain (Admin quản lý toàn bộ domain trong hệ thống)
+
+    CRUD Order (Buyer đặt mua, Admin xác nhận)
+
+    CRUD Role (có thể hard-code)
+
+3.3. Mua bán domain
+
+    Buyer chọn domain → tạo đơn hàng
+
+    Admin duyệt/hoàn tất đơn hàng
+
+    Ghi log giao dịch vào bảng Transaction
+
+4. Kết nối DB (JDBC)
+
+    Bảng cần thiết:
+
+    users (id,fullname , username, password, role)
+
+    domains (id, name, price, status)
+
+    orders (id, buyer_id, domain_id, status, created_at)
+
+    transactions (id, order_id, domain_id, total, timestamp)
+
+    roles (id, name) (có thể tạo sẵn 2 bản ghi: Admin, Buyer)
+
+5. Báo cáo & Export file
+
+    Admin có thể:
+
+    Xem thống kê số lượng domain đã bán
+
+    Tổng doanh thu theo tháng
+
+    In danh sách đơn hàng
+
+    Export ra:
+
+    CSV: FileWriter
+
+    Excel: Apache POI
+
+    PDF: iText hoặc PDFBox
+
+6. Giao diện (AWT-Swing)
+    Giao diện Login / Đăng ký
+
+    Giao diện chính sau đăng nhập:
+
+    Admin: Tabs quản lý Domain, Đơn hàng, Báo cáo
+
+    Buyer: Danh sách domain + Đặt mua
+
+    Dùng JTable, JTabbedPane, JTextField, JButton, JComboBox,...
+
+7. Transaction & Ngoại lệ
+    Transaction khi đặt đơn hàng:
+
+    java
+    Sao chép
+    Chỉnh sửa
+    setAutoCommit(false)
+    insert order
+    update domain status
+    commit
+    Bắt lỗi:
+
+    Kết nối DB lỗi
+
+    Trùng tên người dùng
+
+    Domain đã bán
+
+8. Dùng Collection
+    Dùng ArrayList, HashMap để lưu tạm danh sách domain, orders,...
+
+    Có thể sắp xếp hoặc tìm kiếm dữ liệu trước khi đổ ra UI
+
+    Bạn muốn mình giúp tiếp phần nào? Ví dụ:
+
+    Tạo file .sql tạo bảng DB
+
+    Tạo class User, Domain, Order
+
+    Kết nối JDBC mẫu
+
+    Giao diện đăng nhập với Swing
