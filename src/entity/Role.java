@@ -1,32 +1,42 @@
 package entity;
 
-public class Role {
-    private int id;
-    private String name; // ADMIN or BUYER
+public enum Role {
+    ADMIN(1, "ADMIN"),
+    BUYER(2, "BUYER");
 
-    // Constructors
-    public Role() {
-    }
+    private final int id;
+    private final String name;
 
-    public Role(int id, String name) {
+    Role(int id, String name) {
         this.id = id;
         this.name = name;
     }
 
-    // Getters and Setters
     public int getId() {
         return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
     }
 
     public String getName() {
         return name;
     }
 
-    public void setName(String name) {
-        this.name = name;
+    // Phương thức hữu ích để tìm Role theo id
+    public static Role getById(int id) {
+        for (Role role : values()) {
+            if (role.id == id) {
+                return role;
+            }
+        }
+        throw new IllegalArgumentException("Không tìm thấy Role với id: " + id);
+    }
+
+    // Phương thức hữu ích để tìm Role theo name
+    public static Role getByName(String name) {
+        for (Role role : values()) {
+            if (role.name.equals(name)) {
+                return role;
+            }
+        }
+        throw new IllegalArgumentException("Không tìm thấy Role với name: " + name);
     }
 }

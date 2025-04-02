@@ -35,7 +35,7 @@
 
     CRUD Domain (Admin quản lý toàn bộ domain trong hệ thống)
 
-    CRUD Order (Buyer đặt mua, Admin xác nhận)
+    CRUD Order (Buyer tạo đơn hàng và đơn hàng được tạo tự động khi mua)
 
     CRUD Role (có thể hard-code)
 
