@@ -12,10 +12,11 @@ public class ValidationUtils {
 
     // Kiểm tra mật khẩu
     public static boolean isValidPassword(String password) {
-        // Mật khẩu ít nhất 6 ký tự, có ít nhất 1 chữ cái và 1 số
+        // Mật khẩu ít nhất 6 ký tự, có ít nhất 1 chữ cái và 1 số và một ký tự đặc biệt
         return password != null && password.length() >= 6
-                && Pattern.matches(".*[a-zA-Z].*", password)
-                && Pattern.matches(".*[0-9].*", password);
+                && Pattern.compile("[a-zA-Z]").matcher(password).find()
+                && Pattern.compile("[0-9]").matcher(password).find()
+                && Pattern.compile("[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?]").matcher(password).find();
     }
 
     // Kiểm tra email
