@@ -3,44 +3,47 @@ package backEnd.service;
 import entity.Domain;
 import entity.Order;
 import entity.RentalPeriod;
-import backEnd.dao.DomainDAO;
-import backEnd.dao.OrderDAO;
-import backEnd.dao.RentalPeriodDAO;
+import backEnd.repository.DomainRepository;
+import backEnd.repository.OrderRepository;
+import backEnd.repository.RentalPeriodRepository;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public class DomainService {
-    private final DomainDAO domainDAO;
-    private final OrderDAO orderDAO;
-    private final RentalPeriodDAO rentalPeriodDAO;
+    private final DomainRepository domainRepository;
+    private final OrderRepository orderRepository;
+    private final RentalPeriodRepository rentalPeriodRepository;
 
     public DomainService(Connection connection) {
-        this.domainDAO = new DomainDAO(connection);
-        this.orderDAO = new OrderDAO(connection);
-        this.rentalPeriodDAO = new RentalPeriodDAO(connection);
+        this.domainRepository = new DomainRepository(connection);
+        this.orderRepository = new OrderRepository(connection);
+        this.rentalPeriodRepository = new RentalPeriodRepository(connection);
     }
 
     // Phương thức để lấy tất cả các gói thuê
     public List<RentalPeriod> getAllRentalPeriods() throws SQLException {
-        return rentalPeriodDAO.getAllRentalPeriods();
+        return rentalPeriodRepository.findAll();
     }
 
     // Phương thức để tạo một đơn hàng thuê tên miền
     public Order createRentalOrder(int userId, int domainId, int rentalPeriodId) throws SQLException {
         // Lấy thông tin tên miền
-        Domain domain = domainDAO.getDomainById(domainId);
-        if (domain == null || !domain.getStatus().equalsIgnoreCase("Available")) {
+        Optional<Domain> domainOpt = domainRepository.findById(domainId);
+        if (domainOpt.isEmpty() || !domainOpt.get().getStatus().equalsIgnoreCase("Available")) {
             throw new IllegalArgumentException("Tên miền không khả dụng");
         }
+        Domain domain = domainOpt.get();
 
         // Lấy thông tin gói thuê
-        RentalPeriod period = rentalPeriodDAO.getRentalPeriodById(rentalPeriodId);
-        if (period == null) {
+        Optional<RentalPeriod> periodOpt = rentalPeriodRepository.findById(rentalPeriodId);
+        if (periodOpt.isEmpty()) {
             throw new IllegalArgumentException("Gói thuê không hợp lệ");
         }
+        RentalPeriod period = periodOpt.get();
 
         // Tính tổng giá tiền
         double totalPrice = domain.getPrice() * period.getMonths() * (1 - period.getDiscount());
@@ -60,11 +63,11 @@ public class DomainService {
         order.setTotalPrice(totalPrice);
 
         // Lưu đơn hàng
-        orderDAO.addOrder(order);
+        orderRepository.save(order);
 
         // Cập nhật trạng thái tên miền
         domain.setStatus("Reserved");
-        domainDAO.updateDomain(domain);
+        domainRepository.save(domain);
 
         return order;
     }
@@ -75,13 +78,12 @@ public class DomainService {
 
         // Kiểm tra xem tên miền nào đã được thuê
         for (Domain option : options) {
-            if (domainDAO.isDomainExists(option.getName(), option.getExtension())) {
-                Domain existingDomain = domainDAO.getDomainByNameAndExtension(option.getName(), option.getExtension());
-                if (existingDomain != null) {
-                    option.setId(existingDomain.getId());
-                    option.setStatus(existingDomain.getStatus());
-                    option.setExpiryDate(existingDomain.getExpiryDate());
-                }
+            Optional<Domain> existingDomain = domainRepository.findByNameAndExtension(option.getName(), option.getExtension());
+            if (existingDomain.isPresent()) {
+                Domain domain = existingDomain.get();
+                option.setId(domain.getId());
+                option.setStatus(domain.getStatus());
+                option.setExpiryDate(domain.getExpiryDate());
             }
         }
 
