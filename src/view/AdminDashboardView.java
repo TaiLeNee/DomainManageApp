@@ -23,80 +23,79 @@ public class AdminDashboardView extends JFrame {
     public AdminDashboardView() {
         left = new JPanel();
         right = new JPanel();
-        cardLayout = new CardLayout(); // Tạo instance CardLayout
-        right.setLayout(cardLayout); // Đặt layout cho right panel
+        cardLayout = new CardLayout();
+        right.setLayout(cardLayout);
 
         this.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         this.setSize(1920, 1080);
         this.setLayout(new BorderLayout());
         this.setTitle("Admin Dashboard");
+        setLocationRelativeTo(null);
+        setResizable(false);
 
         setupLeftPanel();
         setupRightPanel();
 
         this.add(left, BorderLayout.WEST);
-        this.add(right, BorderLayout.EAST);
-
+        this.add(right, BorderLayout.CENTER);
     }
 
-    //Hàm thiết lập panel trái
-    private void setupLeftPanel() {//Thiết lập panel trái
-        left.setPreferredSize(new Dimension(366,1080));
-        left.setBackground(new Color(0, 102,102));
-        left.setLayout(new BorderLayout());
+    private void setupLeftPanel() {
+        left.setPreferredSize(new Dimension(366, 1080));
+        left.setBackground(new Color(0, 102, 102));
+        left.setLayout(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.insets = new Insets(0, 0, 50, 0);
 
-        //----TIÊU ĐỀ----
-        // Panel chứa tiêu đề
+        // Title Panel
         JPanel titlePanel = new JPanel();
         titlePanel.setBackground(new Color(0, 102, 102));
-        titlePanel.setPreferredSize(new Dimension(336, 150));
         titlePanel.setLayout(new FlowLayout(FlowLayout.CENTER));
-
-        // Tiêu đề ADMIN
         JLabel title = new JLabel("ADMIN");
         title.setFont(new Font("Segoe UI Black", Font.BOLD, 48));
         title.setForeground(Color.WHITE);
-
-        //Thêm title vào panel
         titlePanel.add(title);
-        left.add(titlePanel, BorderLayout.NORTH);
+        left.add(titlePanel, gbc);
 
-        //--4 BUTTON CHỨC NĂNG--
-        JPanel wrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 50));
-        wrapper.setBackground(new Color(0, 102, 102));
-        //Panel chứa nút bấm
+        // Button Panel
         JPanel buttonPanel = new JPanel();
-        buttonPanel.setPreferredSize(new Dimension(336, 500));
         buttonPanel.setBackground(new Color(0, 102, 102));
-        buttonPanel.setLayout(new GridLayout(4, 1, 20, 20));
+        buttonPanel.setLayout(new GridBagLayout());
+        GridBagConstraints buttonGbc = new GridBagConstraints();
+        buttonGbc.fill = GridBagConstraints.HORIZONTAL;
+        buttonGbc.weightx = 1;
+        buttonGbc.insets = new Insets(10, 0, 10, 0);
 
-        //Tạo 4 button
         JButton button1 = createFunctionButton("Phần mở rộng tên miền", EXTENSION_PANEL);
         JButton button2 = createFunctionButton("Quản lý tên miền", DOMAIN_MNG_PANEL);
         JButton button3 = createFunctionButton("Quản lý đơn hàng", ORDER_MNG_PANEL);
         JButton button4 = createFunctionButton("Báo cáo & thống kê", REPORT_PANEL);
 
-        buttonPanel.add(button1);
-        buttonPanel.add(button2);
-        buttonPanel.add(button3);
-        buttonPanel.add(button4);
+        buttonGbc.gridy = 0;
+        buttonPanel.add(button1, buttonGbc);
+        buttonGbc.gridy = 1;
+        buttonPanel.add(button2, buttonGbc);
+        buttonGbc.gridy = 2;
+        buttonPanel.add(button3, buttonGbc);
+        buttonGbc.gridy = 3;
+        buttonPanel.add(button4, buttonGbc);
 
-        wrapper.add(buttonPanel);
-        left.add(wrapper, BorderLayout.CENTER);
+        gbc.gridy = 1;
+        gbc.insets = new Insets(0, 0, 100, 0);
+        left.add(buttonPanel, gbc);
 
-        //--BUTTON ĐĂNG XUẤT--
-
-        //Tạo panel chứa button đăng xuất
+        // Logout Panel
         JPanel logoutPanel = new JPanel();
-        logoutPanel.setBackground(new Color(0,102,102));
-        logoutPanel.setPreferredSize(new Dimension(336, 80));
+        logoutPanel.setBackground(new Color(0, 102, 102));
         logoutPanel.setLayout(new FlowLayout(FlowLayout.CENTER));
-
-        //Tạo nút bấm đăng xuất (tương tự 4 button trên nhưng nhỏ hơn)
         JButton logoutButton = new JButton("Đăng xuất");
         logoutButton.setFont(new Font("Segoe UI", Font.BOLD, 18));
         logoutButton.setForeground(Color.WHITE);
-        logoutButton.setBackground(new Color(0,102,102));
+        logoutButton.setBackground(new Color(0, 102, 102));
         logoutButton.setFocusPainted(false);
         logoutButton.setBorder(null);
         logoutButton.setPreferredSize(new Dimension(200, 40));
@@ -114,16 +113,16 @@ public class AdminDashboardView extends JFrame {
         });
 
         logoutPanel.add(logoutButton);
-        left.add(logoutPanel, BorderLayout.SOUTH);
-
+        gbc.gridy = 2;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        left.add(logoutPanel, gbc);
     }
 
     private JButton createFunctionButton(String text, String panelKey) {
         JButton button = new JButton(text);
         Font buttonFont = new Font("Segoe UI", Font.BOLD, 24);
-        Color buttonbg = new Color(0,102,102);
+        Color buttonbg = new Color(0, 102, 102);
         Color buttontext = Color.WHITE;
-        Color selectedtext = Color.BLACK;
         button.setFont(buttonFont);
         button.setBackground(buttonbg);
         button.setForeground(buttontext);
@@ -132,67 +131,64 @@ public class AdminDashboardView extends JFrame {
         button.setPreferredSize(new Dimension(320, 60));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Listener khi di chuột (chỉ thay đổi nếu nút không được chọn)
         button.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                if (button != selectedButton) { // Chỉ đổi màu nếu không phải nút đang chọn
+                if (button != selectedButton) {
                     button.setForeground(Color.BLACK);
                 }
             }
 
             @Override
             public void mouseExited(MouseEvent e) {
-                if (button != selectedButton) { // Chỉ reset màu nếu không phải nút đang chọn
+                if (button != selectedButton) {
                     button.setForeground(buttontext);
                 }
             }
         });
 
-        // Listener khi nhấn nút (để chọn nút)
         button.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                // 1. Reset nút được chọn trước đó (nếu có)
                 if (selectedButton != null) {
                     selectedButton.setBackground(buttonbg);
                     selectedButton.setForeground(buttontext);
                 }
-
-                // 2. Cập nhật nút được chọn mới
-                selectedButton = button; // Gán nút vừa nhấn là nút đang chọn
+                selectedButton = button;
                 selectedButton.setBackground(buttonbg);
                 selectedButton.setForeground(Color.BLACK);
                 cardLayout.show(right, panelKey);
-                System.out.println("Đã chọn: " + selectedButton.getText()); // In ra console để kiểm tra
+                System.out.println("Đã chọn: " + selectedButton.getText());
             }
         });
         return button;
     }
 
-    //Hàm thiết lập cho panel phải
     private void setupRightPanel() {
-        // Tạo các instance của panel con
         DomainExtensionPanel domainExtensionPanel = new DomainExtensionPanel();
         DomainManagementPanel domainManagementPanel = new DomainManagementPanel();
         OrderManagementPanel orderManagementPanel = new OrderManagementPanel();
         ReportingPanel reportingPanel = new ReportingPanel();
 
-        // Thêm các panel con vào right panel với key tương ứng
         right.add(domainExtensionPanel, EXTENSION_PANEL);
         right.add(domainManagementPanel, DOMAIN_MNG_PANEL);
         right.add(orderManagementPanel, ORDER_MNG_PANEL);
         right.add(reportingPanel, REPORT_PANEL);
-
-        // Không cần đặt preferredSize cho right nếu nó nằm ở BorderLayout.CENTER
-        // Nó sẽ tự động chiếm không gian còn lại.
     }
 
     public static void main(String[] args) {
-        // Chạy giao diện trên Event Dispatch Thread
-        SwingUtilities.invokeLater(() -> {
-            AdminDashboardView adminDashboard = new AdminDashboardView();
-            adminDashboard.setVisible(true);
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                AdminDashboardView adminDashboardView = new AdminDashboardView();
+                adminDashboardView.setVisible(true);
+            }
         });
     }
 }
