@@ -45,6 +45,7 @@ public class Login extends JFrame{
 		rightPanel.setBackground(Color.lightGray);
 		rightPanel.setLayout(new GridBagLayout());
 		GridBagConstraints gbc = new GridBagConstraints();
+		gbc.fill = GridBagConstraints.HORIZONTAL;
 
 		JLabel titleLabel = new JLabel("Đăng Nhập");
 		titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
@@ -52,6 +53,7 @@ public class Login extends JFrame{
 
 		JLabel usernameLabel = new JLabel("Tên đăng nhập:");
 		usernameField = new JTextField(20);
+		usernameField.setMinimumSize(usernameField.getPreferredSize());
 
 		JLabel passwordLabel = new JLabel("Mật khẩu:");
 		passwordField = new JPasswordField(20);

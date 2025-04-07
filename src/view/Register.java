@@ -57,6 +57,7 @@ public class Register extends JFrame{
 		rightPanel.setBackground(Color.lightGray);
 		rightPanel.setLayout(new GridBagLayout());
 		GridBagConstraints gbc = new GridBagConstraints();
+		gbc.fill = GridBagConstraints.HORIZONTAL; //Set layout cho các thành phần trong GridBagLayout !important
 		
 		JLabel titleLabel = new JLabel("Đăng ký");
 		titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
@@ -64,7 +65,8 @@ public class Register extends JFrame{
 		
 		JLabel fullnameLabel = new JLabel("Ho và tên:");
 		fullnameField = new JTextField(20);
-		
+		fullnameField.setMinimumSize(fullnameField.getPreferredSize()); // Đặt kích thước tối thiểu cho fullnameField !important
+
 		JLabel emailLabel = new JLabel("Email:");
 		emailField = new JTextField(20);
 		
@@ -128,7 +130,7 @@ public class Register extends JFrame{
         gbc.insets = new Insets(10, 10, 10, 10);
 		gbc.gridx = 0;
 		gbc.gridy = 0;
-		gbc.gridwidth = 2;
+		gbc.gridwidth = 20;
 		rightPanel.add(titleLabel, gbc);
 		
 		gbc.gridwidth = 1;
