@@ -1,11 +1,13 @@
 package view;
 
+import view.adminDashboard.DomainExtensionPanel;
+import view.adminDashboard.DomainManagementPanel;
+import view.adminDashboard.OrderManagementPanel;
+import view.adminDashboard.ReportingPanel;
+
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 
 public class AdminDashboardView extends JFrame {
 
@@ -109,6 +111,23 @@ public class AdminDashboardView extends JFrame {
             @Override
             public void mouseExited(MouseEvent e) {
                 logoutButton.setForeground(Color.WHITE);
+            }
+        });
+
+        //Nhấn nút đăng xuất và quay trở lại cửa sổ đăng nhập
+        logoutButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int answer = JOptionPane.showConfirmDialog(null, "Bạn có chắc chắn muốn đăng xuất không?", "Đăng xuất", JOptionPane.YES_NO_OPTION);
+                if(answer == 0) {
+                    JOptionPane.showMessageDialog(null, "Bạn sẽ được quay lại cửa sổ đăng nhập", "Có", JOptionPane.PLAIN_MESSAGE);
+                    // Create and show the Login window
+                    SwingUtilities.invokeLater(() -> {
+                        Login login = new Login();
+                        login.setVisible(true);
+                    });
+                    dispose();
+                }
             }
         });
 
