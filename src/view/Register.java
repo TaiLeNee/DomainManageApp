@@ -1,6 +1,7 @@
 package view;
 
 import java.awt.BorderLayout;
+
 import java.awt.Color;
 import java.awt.Cursor;
 import java.awt.Dimension;
@@ -14,16 +15,26 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+
+import backEnd.DatabaseConnection;
+import entity.User;
+import utils.ValidationUtils;
 
 @SuppressWarnings("serial")
 public class Register extends JFrame{
@@ -59,10 +70,10 @@ public class Register extends JFrame{
 		GridBagConstraints gbc = new GridBagConstraints();
 		
 		JLabel titleLabel = new JLabel("Đăng ký");
-		titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+		titleLabel.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 24));
 		titleLabel.setForeground(new Color(0, 102, 204));
 		
-		JLabel fullnameLabel = new JLabel("Ho và tên:");
+		JLabel fullnameLabel = new JLabel("Họ và tên:");
 		fullnameField = new JTextField(20);
 		
 		JLabel emailLabel = new JLabel("Email:");
@@ -108,7 +119,7 @@ public class Register extends JFrame{
 		
         // Style button
         registerButton.setBackground(new Color(0, 102, 204));
-        registerButton.setFont(new Font("Arial", Font.BOLD, 12));
+        registerButton.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 14));
         registerButton.setPreferredSize(new Dimension(210, 50));
         registerButton.setForeground(Color.WHITE);
         
@@ -125,7 +136,7 @@ public class Register extends JFrame{
         toggleButton2.setFocusPainted(false);
         
         // Add components to rightPanel
-        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.insets = new Insets(5, 10, 5, 10);
 		gbc.gridx = 0;
 		gbc.gridy = 0;
 		gbc.gridwidth = 2;
@@ -204,13 +215,72 @@ public class Register extends JFrame{
 		add(mainPanel);
 		
 		registerButton.addActionListener(new ActionListener() {
-
+			@SuppressWarnings("static-access")
 			@Override
 			public void actionPerformed(ActionEvent e) {
-		
+				String fullName = fullnameField.getText();
+				String user = usernameField.getText();
+				String pass = new String(passwordField.getPassword());
+				String confirmpass = new String(confirmpasswordField.getPassword());
+				String email = emailField.getText();
+				String role = "Buyer";
 				
+				if(new ValidationUtils().isNotEmpty(fullName)) {
+					if(new ValidationUtils().isValidEmail(email)) {
+						if(new ValidationUtils().isValidUsername(user)) {
+							if(pass.equals(confirmpass)) {
+								String query = "INSERT INTO User(fullName , username,password,role) VALUES(?,?,?,?) ";
+								try(Connection conn = DatabaseConnection.getConnection(); 
+										PreparedStatement stmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
+									stmt.setString(1, fullName);
+									stmt.setString(2, user);
+									stmt.setString(3, pass);
+									stmt.setString(4, role);
+									stmt.executeUpdate();
+									try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
+						                if (generatedKeys.next()) {
+						                    int userId = generatedKeys.getInt(1);
+						                    // Tạo đối tượng User mới
+						                    User newUser = new User(userId, fullName, user, pass,role);
+						                    JOptionPane.showMessageDialog(Register.this,
+						                            "Tài khoản đã tạo thành công",
+						                            "Thông báo",
+						                            JOptionPane.INFORMATION_MESSAGE);
+						                    Login login = new Login();
+						                    login.setVisible(true);
+						                    setVisible(false);
+						                }
+						            }
+								} catch (SQLException e1) {
+									e1.printStackTrace();
+								}
+							}else {
+								JOptionPane.showMessageDialog(Register.this,
+			                            "Xác nhận mật khẩu sai!",
+			                            "Thông báo",
+			                            JOptionPane.INFORMATION_MESSAGE);
+							}
+						}else {
+							JOptionPane.showMessageDialog(Register.this,
+		                            "Sai đinh dạng tên đăng nhập phải gồm: 4-20 ký tự, chỉ chứa chữ cái, số và dấu gạch dưới!",
+		                            "Thông báo",
+		                            JOptionPane.INFORMATION_MESSAGE);
+						}
+					}else{
+						JOptionPane.showMessageDialog(Register.this,
+	                            "Email sai định dạng!",
+	                            "Thông báo",
+	                            JOptionPane.INFORMATION_MESSAGE);
+					}
+				}else {
+					JOptionPane.showMessageDialog(Register.this,
+	                        "Họ và tên không được bỏ trông!",
+	                        "Thông báo",
+	                        JOptionPane.INFORMATION_MESSAGE);
+				}
 			}
 		});
+		
 		toggleButton1.addActionListener(new ActionListener() {
 		    private boolean isVisible = false;
 
@@ -241,6 +311,7 @@ public class Register extends JFrame{
 		    }
 		});
 	}
+
 	
 	public static void main(String[] args) {
 		 // Thiết lập giao diện
