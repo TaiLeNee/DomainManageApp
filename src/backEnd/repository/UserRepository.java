@@ -18,13 +18,12 @@ public class UserRepository {
     public void save(User user) throws SQLException {
         if (user.getId() <= 0) {
             // Thêm mới
-            String sql = "INSERT INTO users (fullname, username, password, email, role) VALUES (?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO users (fullname, username, password, role) VALUES (?, ?, ?, ?)";
             try (PreparedStatement stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 stmt.setString(1, user.getFullName());
                 stmt.setString(2, user.getUsername());
                 stmt.setString(3, user.getPassword());
-                stmt.setString(4, user.getEmail());
-                stmt.setString(5, user.getRole());
+                stmt.setString(4, user.getRole());
                 stmt.executeUpdate();
 
                 try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
@@ -35,14 +34,13 @@ public class UserRepository {
             }
         } else {
             // Cập nhật
-            String sql = "UPDATE users SET fullname = ?, username = ?, password = ?, email = ?, role = ? WHERE id = ?";
+            String sql = "UPDATE users SET fullname = ?, username = ?, password = ?, role = ? WHERE id = ?";
             try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                 stmt.setString(1, user.getFullName());
                 stmt.setString(2, user.getUsername());
                 stmt.setString(3, user.getPassword());
-                stmt.setString(4, user.getEmail());
-                stmt.setString(5, user.getRole());
-                stmt.setInt(6, user.getId());
+                stmt.setString(4, user.getRole());
+                stmt.setInt(5, user.getId());
                 stmt.executeUpdate();
             }
         }
@@ -59,7 +57,6 @@ public class UserRepository {
                             rs.getString("fullname"),
                             rs.getString("username"),
                             rs.getString("password"),
-                            rs.getString("email"),
                             rs.getString("role")
                     );
                     return Optional.of(user);
@@ -80,7 +77,6 @@ public class UserRepository {
                         rs.getString("fullname"),
                         rs.getString("username"),
                         rs.getString("password"),
-                        rs.getString("email"),
                         rs.getString("role")
                 ));
             }
@@ -99,51 +95,6 @@ public class UserRepository {
                             rs.getString("fullname"),
                             rs.getString("username"),
                             rs.getString("password"),
-                            rs.getString("email"),
-                            rs.getString("role")
-                    );
-                    return Optional.of(user);
-                }
-            }
-        }
-        return Optional.empty();
-    }
-
-    public Optional<User> findByEmail(String email) throws SQLException {
-        String sql = "SELECT * FROM users WHERE email = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setString(1, email);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    User user = new User(
-                            rs.getInt("id"),
-                            rs.getString("fullname"),
-                            rs.getString("username"),
-                            rs.getString("password"),
-                            rs.getString("email"),
-                            rs.getString("role")
-                    );
-                    return Optional.of(user);
-                }
-            }
-        }
-        return Optional.empty();
-    }
-
-    public Optional<User> authenticate(String usernameOrEmail, String password) throws SQLException {
-        String sql = "SELECT * FROM users WHERE (username = ? OR email = ?) AND password = ?";
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setString(1, usernameOrEmail);
-            stmt.setString(2, usernameOrEmail);
-            stmt.setString(3, password);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    User user = new User(
-                            rs.getInt("id"),
-                            rs.getString("fullname"),
-                            rs.getString("username"),
-                            rs.getString("password"),
-                            rs.getString("email"),
                             rs.getString("role")
                     );
                     return Optional.of(user);

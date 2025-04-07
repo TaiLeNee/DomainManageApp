@@ -20,7 +20,6 @@ CREATE TABLE users (
     fullname NVARCHAR(100) NOT NULL,
     username VARCHAR(50) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
     role VARCHAR(20) NOT NULL
 );
 GO
@@ -78,12 +77,13 @@ GO
 -- Thêm dữ liệu mẫu
 
 -- Thêm người dùng
-INSERT INTO users (fullname, username, password, email, role)
+INSERT INTO users (fullname, username, password, role)
 VALUES
-    (N'Lê Công Tài', 'admin', 'admin1@', 'admin@domain.com', 'admin'),
-    (N'Đặng Phan Duy', 'admin2', 'admin2@', 'admin2@domain.com', 'admin'),
-    (N'Trần Minh Đại', 'admin3', 'admin3@', 'admin3@domain.com', 'admin'),
-    (N'Nguyễn Văn A', 'user1', 'user1@', 'user1@domain.com', 'user');
+    (N'Lê Công Tài', 'admin', 'admin1@', 'admin'),
+    (N'Đặng Phan Duy', 'admin2', 'admin2@', 'admin'),
+    (N'Trần Minh Đại', 'admin3', 'admin3@', 'admin'),
+    (N'Nguyễn Văn A', 'user1', 'user1@', 'user');
+GO
 
 -- Thêm domain
 INSERT INTO domains (name, extension, price, status)
