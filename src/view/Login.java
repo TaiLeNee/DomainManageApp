@@ -153,7 +153,7 @@ public class Login extends JFrame{
 				String user = usernameField.getText();
 				String pass = new String(passwordField.getPassword());
 
-				if(true) {
+				if(authenticateUser(user,pass)) {
 					 JOptionPane.showMessageDialog(Login.this,
 	                            "Đăng nhập thành công!",
 	                            "Thông báo",
@@ -183,7 +183,6 @@ public class Login extends JFrame{
 		        }
 		    }
 		});
-
 
 	}
 	
