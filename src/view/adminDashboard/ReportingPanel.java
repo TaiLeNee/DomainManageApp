@@ -1,4 +1,4 @@
-package view;
+package view.adminDashboard;
 
 import javax.swing.*;
 import java.awt.*;
