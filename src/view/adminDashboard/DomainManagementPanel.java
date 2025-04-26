@@ -34,7 +34,7 @@ public class DomainManagementPanel extends JPanel {
         add(searchPanel, BorderLayout.NORTH); // Thêm panel tìm kiếm vào phía Bắc
 
         // --- Bảng Dữ liệu (Ở giữa) ---
-        String[] columnNames = {"ID", "Name", "Extension", "Ngày hết hạn"};
+        String[] columnNames = {"ID", "Name", "Extension", "Giá", "Tình trạng"};
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             //Không thể thay đổi thông tin trong bàng
