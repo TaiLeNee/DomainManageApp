@@ -1,19 +1,61 @@
-package backEnd.repository;
+package repository;
 
-import entity.Domain;
+import model.Domain;
 import utils.ValidationUtils;
 
 import java.sql.*;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 public class DomainRepository {
-    private final Connection connection;
+    private Connection connection;
 
     public DomainRepository(Connection connection) {
         this.connection = connection;
+    }
+
+    // Constructor mặc định để AdminDashboardView có thể khởi tạo
+    public DomainRepository() {
+        try {
+            this.connection = DatabaseConnection.getConnection();
+        } catch (SQLException e) {
+            System.err.println("Error creating DomainRepository: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // Các phương thức được gọi từ AdminDashboardView
+    public List<Domain> getAllDomains() {
+        try {
+            return findAll();
+        } catch (SQLException e) {
+            System.err.println("Error getting all domains: " + e.getMessage());
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    public Domain getDomainById(int id) {
+        try {
+            Optional<Domain> domain = findById(id);
+            return domain.orElse(null);
+        } catch (SQLException | IllegalArgumentException e) {
+            System.err.println("Error getting domain by id: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public boolean deleteDomain(int id) {
+        try {
+            deleteById(id);
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Error deleting domain: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
 
     public void save(Domain domain) throws SQLException, IllegalArgumentException {
@@ -80,8 +122,7 @@ public class DomainRepository {
                             rs.getString("name"),
                             rs.getString("extension"),
                             rs.getDouble("price"),
-                            rs.getString("status")
-                    );
+                            rs.getString("status"));
 
                     // Đọc ngày hết hạn nếu có
                     Timestamp expiryTimestamp = rs.getTimestamp("expiry_date");
@@ -108,8 +149,7 @@ public class DomainRepository {
                             rs.getString("name"),
                             rs.getString("extension"),
                             rs.getDouble("price"),
-                            rs.getString("status")
-                    );
+                            rs.getString("status"));
 
                     // Đọc ngày hết hạn nếu có
                     Timestamp expiryTimestamp = rs.getTimestamp("expiry_date");
@@ -128,15 +168,14 @@ public class DomainRepository {
         List<Domain> domains = new ArrayList<>();
         String sql = "SELECT * FROM domains";
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+                ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 Domain domain = new Domain(
                         rs.getInt("id"),
                         rs.getString("name"),
                         rs.getString("extension"),
                         rs.getDouble("price"),
-                        rs.getString("status")
-                );
+                        rs.getString("status"));
 
                 // Đọc ngày hết hạn nếu có
                 Timestamp expiryTimestamp = rs.getTimestamp("expiry_date");
@@ -169,15 +208,14 @@ public class DomainRepository {
         String sql = "SELECT * FROM domains WHERE status = 'Rented' AND expiry_date < CURRENT_TIMESTAMP";
 
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+                ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 Domain domain = new Domain(
                         rs.getInt("id"),
                         rs.getString("name"),
                         rs.getString("extension"),
                         rs.getDouble("price"),
-                        rs.getString("status")
-                );
+                        rs.getString("status"));
 
                 // Đọc ngày hết hạn
                 Timestamp expiryTimestamp = rs.getTimestamp("expiry_date");
@@ -221,4 +259,57 @@ public class DomainRepository {
             throw new IllegalArgumentException("Trạng thái không được để trống");
         }
     }
+
+    /**
+     * Tìm kiếm tên miền theo từ khóa
+     * 
+     * @param searchTerm Từ khóa tìm kiếm (tên miền hoặc phần mở rộng)
+     * @return Danh sách các tên miền phù hợp với từ khóa
+     */
+    public List<Domain> searchDomains(String searchTerm) {
+        List<Domain> results = new ArrayList<>();
+
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            try {
+                return findAll(); // Trả về tất cả nếu từ khóa tìm kiếm trống
+            } catch (SQLException e) {
+                System.err.println("Error getting all domains: " + e.getMessage());
+                e.printStackTrace();
+                return results;
+            }
+        }
+
+        String searchPattern = "%" + searchTerm.trim() + "%";
+        String sql = "SELECT * FROM domains WHERE name LIKE ? OR extension LIKE ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, searchPattern);
+            stmt.setString(2, searchPattern);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Domain domain = new Domain(
+                            rs.getInt("id"),
+                            rs.getString("name"),
+                            rs.getString("extension"),
+                            rs.getDouble("price"),
+                            rs.getString("status"));
+
+                    // Đọc ngày hết hạn nếu có
+                    Timestamp expiryTimestamp = rs.getTimestamp("expiry_date");
+                    if (expiryTimestamp != null) {
+                        domain.setExpiryDate(expiryTimestamp.toLocalDateTime());
+                    }
+
+                    results.add(domain);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error searching domains: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return results;
+    }
+
 }
