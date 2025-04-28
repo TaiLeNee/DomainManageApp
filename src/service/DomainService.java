@@ -175,4 +175,19 @@ public class DomainService {
         }
         return prices;
     }
+
+    // Phương thức để tính giá thuê cho một khoảng thời gian cụ thể
+    public double calculatePriceForPeriod(double basePrice, int months) {
+        // Giảm giá khi thuê dài hạn
+        switch (months) {
+            case 1:
+                return basePrice; // Giá gốc cho 1 tháng
+            case 6:
+                return basePrice * 6 * 0.9; // Giảm 10% khi thuê 6 tháng
+            case 12:
+                return basePrice * 12 * 0.8; // Giảm 20% khi thuê 12 tháng
+            default:
+                return basePrice * months; // Không có khuyến mãi
+        }
+    }
 }

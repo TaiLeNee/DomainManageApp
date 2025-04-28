@@ -50,13 +50,13 @@ public class ExtensionsPanel extends JPanel {
                 JButton editButton = new JButton("Sửa");
                 editButton.setPreferredSize(new Dimension(60, 30));
                 editButton.setBackground(new Color(52, 152, 219));
-                editButton.setForeground(Color.WHITE);
+                editButton.setForeground(Color.BLACK);
                 editButton.setFocusPainted(false);
 
                 JButton deleteButton = new JButton("Xóa");
                 deleteButton.setPreferredSize(new Dimension(60, 30));
                 deleteButton.setBackground(new Color(231, 76, 60));
-                deleteButton.setForeground(Color.WHITE);
+                deleteButton.setForeground(Color.BLACK);
                 deleteButton.setFocusPainted(false);
 
                 actionsPanel.add(editButton);
@@ -84,7 +84,7 @@ public class ExtensionsPanel extends JPanel {
 
         JButton searchButton = new JButton("Tìm kiếm");
         searchButton.setBackground(PRIMARY_COLOR);
-        searchButton.setForeground(Color.WHITE);
+        searchButton.setForeground(Color.BLACK);
         searchButton.setFocusPainted(false);
         searchButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         searchButton.setPreferredSize(new Dimension(100, 35));
@@ -95,7 +95,7 @@ public class ExtensionsPanel extends JPanel {
 
         JButton addButton = new JButton("Thêm phần mở rộng");
         addButton.setBackground(ACCENT_COLOR);
-        addButton.setForeground(Color.WHITE);
+        addButton.setForeground(Color.BLACK);
         addButton.setFocusPainted(false);
 
         addButton.addActionListener(e -> showAddExtensionDialog());

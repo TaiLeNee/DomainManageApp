@@ -38,7 +38,7 @@ public class ReportsPanel extends JPanel {
 
         JButton generateButton = new JButton("Tạo báo cáo");
         generateButton.setBackground(PRIMARY_COLOR);
-        generateButton.setForeground(Color.WHITE);
+        generateButton.setForeground(Color.BLACK);
 
         generateButton.addActionListener(e -> generateReport());
 

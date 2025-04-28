@@ -37,6 +37,15 @@ CREATE TABLE domains (
 );
 GO
 
+-- Bảng domain_extensions
+CREATE TABLE domain_extensions (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    extension VARCHAR(20) UNIQUE NOT NULL,
+    default_price DECIMAL(10, 2) NOT NULL,
+    description NVARCHAR(255) NULL
+);
+GO
+
 -- Bảng rental_periods
 CREATE TABLE rental_periods (
     id INT IDENTITY(1,1) PRIMARY KEY,
@@ -80,7 +89,7 @@ GO
 -- Thêm người dùng
 INSERT INTO users (fullname, username, password, email, role)
 VALUES
-    (N'Lê Công Tài', 'admin', 'admin1@', 'admin@domain.com', 'admin'),
+    (N'Lê Công Tài', '1', '1', 'admin@domain.com', 'admin'),
     (N'Đặng Phan Duy', 'admin2', 'admin2@', 'admin2@domain.com', 'admin'),
     (N'Trần Minh Đại', 'admin3', 'admin3@', 'admin3@domain.com', 'admin'),
     (N'Nguyễn Văn A', 'user1', 'user1@', 'user1@domain.com', 'user');
@@ -93,6 +102,19 @@ VALUES
     ('company', '.net', 180000, 'Available'),
     ('blog', '.org', 150000, 'Available'),
     ('online', '.store', 300000, 'Available');
+GO
+
+-- Thêm dữ liệu cho bảng domain_extensions
+INSERT INTO domain_extensions (extension, default_price, description)
+VALUES
+    ('.com', 200000.0, N'Phần mở rộng phổ biến nhất cho trang web thương mại'),
+    ('.net', 150000.0, N'Phù hợp cho các trang web về công nghệ và mạng'),
+    ('.org', 180000.0, N'Dành cho các tổ chức phi lợi nhuận'),
+    ('.vn', 400000.0, N'Tên miền quốc gia Việt Nam'),
+    ('.com.vn', 350000.0, N'Tên miền thương mại Việt Nam'),
+    ('.info', 120000.0, N'Dành cho các trang web thông tin'),
+    ('.biz', 130000.0, N'Dành cho các trang web kinh doanh'),
+    ('.store', 250000.0, N'Phù hợp cho các cửa hàng trực tuyến');
 GO
 
 -- Thêm gói thuê
@@ -195,5 +217,14 @@ BEGIN
 
     -- Trả về ID của đơn hàng vừa tạo
     SELECT @orderId AS OrderId;
+END;
+GO
+
+-- Thêm thủ tục lấy giá mặc định của phần mở rộng
+CREATE PROCEDURE GetExtensionDefaultPrice
+    @extension VARCHAR(20)
+AS
+BEGIN
+    SELECT default_price FROM domain_extensions WHERE extension = @extension;
 END;
 GO
