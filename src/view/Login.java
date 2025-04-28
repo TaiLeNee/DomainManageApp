@@ -1,235 +1,377 @@
 package view;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 
-import backEnd.DatabaseConnection;
+import repository.DatabaseConnection;
+import repository.UserRepository;
+import model.User;
+import view.AdminView.AdminDashboardView;
+
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Optional;
 
 @SuppressWarnings("serial")
-public class Login extends JFrame{
+public class Login extends JFrame {
 	private JTextField usernameField;
 	private JPasswordField passwordField;
 	private JButton loginButton;
+	private JCheckBox rememberMeCheckbox;
+
+	// Màu sắc chủ đạo
+	private final Color PRIMARY_COLOR = new Color(0, 102, 204);
+	private final Color SECONDARY_COLOR = new Color(240, 240, 240);
+	private final Color TEXT_COLOR = new Color(51, 51, 51);
+	private final Color ERROR_COLOR = new Color(204, 0, 0);
 
 	public Login() {
-		setTitle("Đăng nhập - Quản lý tên miền");
+		// Thiết lập cơ bản cho cửa sổ
+		setTitle("Đăng nhập - Hệ thống Quản lý Tên miền");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setSize(800, 600);
+		setSize(900, 600);
 		setLocationRelativeTo(null);
 		setResizable(false);
 
-		// Panel chính chia làm 2 cột
-		JPanel mainPanel = new JPanel(new GridLayout(1, 2));
+		// Panel chính với BorderLayout
+		JPanel mainPanel = new JPanel(new BorderLayout());
+		mainPanel.setBackground(Color.WHITE);
 
-		// Panel bên trái chứa hình ảnh
-		JPanel leftPanel = new JPanel() {
+		// Tạo các panel con
+		JPanel leftPanel = createLeftPanel();
+		JPanel rightPanel = createRightPanel();
+
+		// Thêm panel con vào panel chính
+		mainPanel.add(leftPanel, BorderLayout.WEST);
+		mainPanel.add(rightPanel, BorderLayout.CENTER);
+
+		// Thêm panel chính vào frame
+		add(mainPanel);
+
+		// Xử lý sự kiện đăng nhập
+		setupEventHandlers();
+	}
+
+	private JPanel createLeftPanel() {
+		JPanel leftPanel = new JPanel(new BorderLayout());
+		leftPanel.setPreferredSize(new Dimension(400, getHeight()));
+		leftPanel.setBackground(PRIMARY_COLOR);
+
+		// Panel chứa hình ảnh
+		JPanel imagePanel = new JPanel() {
 			@Override
 			protected void paintComponent(Graphics g) {
 				super.paintComponent(g);
-				ImageIcon icon = new ImageIcon("src/img/domain_banner.png"); // Bạn cần đặt hình ở đúng path này
-				g.drawImage(icon.getImage(), 0, 0, getWidth(), getHeight(), this);
+				ImageIcon icon = new ImageIcon("src/img/domain_banner.png");
+				Image img = icon.getImage();
+
+				// Kiểm tra và vẽ hình ảnh với kích thước phù hợp
+				if (img != null) {
+					g.drawImage(img, 0, 0, getWidth(), getHeight(), this);
+				} else {
+					g.setColor(PRIMARY_COLOR);
+					g.fillRect(0, 0, getWidth(), getHeight());
+				}
 			}
 		};
-		mainPanel.add(leftPanel);
 
-		// Panel bên phải chứa form đăng nhập
-		JPanel rightPanel = new JPanel();
-		rightPanel.setBackground(Color.lightGray);
-		rightPanel.setLayout(new GridBagLayout());
-		GridBagConstraints gbc = new GridBagConstraints();
-		gbc.fill = GridBagConstraints.HORIZONTAL;
+		// Panel chứa thông tin ứng dụng
+		JPanel infoPanel = new JPanel();
+		infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
+		infoPanel.setOpaque(false);
+		infoPanel.setBorder(new EmptyBorder(0, 20, 30, 20));
+
+		JLabel appTitle = new JLabel("Hệ thống Quản lý Tên miền");
+		appTitle.setForeground(Color.WHITE);
+		appTitle.setFont(new Font("Arial", Font.BOLD, 24));
+		appTitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+		JLabel appDescription = new JLabel("Giải pháp quản lý tên miền toàn diện");
+		appDescription.setForeground(Color.WHITE);
+		appDescription.setFont(new Font("Arial", Font.PLAIN, 16));
+		appDescription.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+		infoPanel.add(Box.createVerticalGlue());
+		infoPanel.add(appTitle);
+		infoPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+		infoPanel.add(appDescription);
+
+		leftPanel.add(imagePanel, BorderLayout.CENTER);
+		leftPanel.add(infoPanel, BorderLayout.SOUTH);
+
+		return leftPanel;
+	}
+
+	private JPanel createRightPanel() {
+		JPanel rightPanel = new JPanel(new BorderLayout());
+		rightPanel.setBackground(Color.WHITE);
+		rightPanel.setBorder(new EmptyBorder(30, 40, 30, 40));
+
+		// Panel tiêu đề
+		JPanel headerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+		headerPanel.setOpaque(false);
 
 		JLabel titleLabel = new JLabel("Đăng Nhập");
-		titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
-		titleLabel.setForeground(new Color(0, 102, 204));
+		titleLabel.setFont(new Font("Arial", Font.BOLD, 28));
+		titleLabel.setForeground(TEXT_COLOR);
 
-		JLabel usernameLabel = new JLabel("Tên đăng nhập:");
-		usernameField = new JTextField(20);
-		usernameField.setMinimumSize(usernameField.getPreferredSize());
+		JLabel subtitleLabel = new JLabel("Vui lòng đăng nhập để tiếp tục");
+		subtitleLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+		subtitleLabel.setForeground(new Color(120, 120, 120));
 
-		JLabel passwordLabel = new JLabel("Mật khẩu:");
-		passwordField = new JPasswordField(20);
+		headerPanel.setLayout(new BoxLayout(headerPanel, BoxLayout.Y_AXIS));
+		headerPanel.add(titleLabel);
+		headerPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+		headerPanel.add(subtitleLabel);
 
-		loginButton = new JButton("Đăng nhập");
-		 // Đường link chuyển đến form chính
-		JLabel textLabel = new JLabel("Bạn chưa có tài khoản?");
-        JLabel linkLabel = new JLabel("<html><a href='#'>Đăng ký ngay</a></html>");
-        linkLabel.setForeground(Color.BLUE);
-        linkLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+		// Panel chứa form đăng nhập
+		JPanel formPanel = new JPanel();
+		formPanel.setOpaque(false);
+		formPanel.setLayout(new GridBagLayout());
 
-        // Khi click vào đường link, chuyển sang form chính
-        linkLabel.addMouseListener(new MouseAdapter() {
-            public void mouseClicked(MouseEvent e) {
-                // Chuyển sang form chính khi click vào đường link
-            	Register registerForm = new Register();
-            	registerForm.setVisible(true);
-                setVisible(false); // Ẩn form đăng nhập
-            }
-        });
-        
-        ImageIcon eyeOpenIcon = new ImageIcon("src/img/eye.png");
-        ImageIcon eyeClosedIcon = new ImageIcon("src/img/eye_off.png");
-        
-        JButton toggleButton = new JButton(eyeClosedIcon);
-        
-        rightPanel.add(linkLabel);
+		GridBagConstraints gbc = new GridBagConstraints();
+		gbc.fill = GridBagConstraints.HORIZONTAL;
+		gbc.insets = new Insets(5, 0, 5, 0);
+		gbc.gridwidth = GridBagConstraints.REMAINDER;
+		gbc.weightx = 1.0;
 
-		// Style button
-		loginButton.setBackground(new Color(0, 102, 204));
-		loginButton.setFont(new Font("Arial", Font.BOLD, 12));
-		loginButton.setPreferredSize(new Dimension(210, 50));
-		loginButton.setForeground(Color.WHITE);
-		
-		toggleButton.setBackground(Color.lightGray);
-        toggleButton.setPreferredSize(new Dimension(30, 30));
-        toggleButton.setContentAreaFilled(false);
-        toggleButton.setBorderPainted(false);
-        toggleButton.setFocusPainted(false);
+		// Username field
+		JLabel usernameLabel = new JLabel("Tên đăng nhập hoặc Email");
+		usernameLabel.setFont(new Font("Arial", Font.BOLD, 14));
+		usernameField = new JTextField();
+		usernameField.setPreferredSize(new Dimension(300, 40));
+		usernameField.setFont(new Font("Arial", Font.PLAIN, 14));
+		usernameField.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createLineBorder(new Color(200, 200, 200)),
+				BorderFactory.createEmptyBorder(5, 10, 5, 10)
+		));
 
-		
+		// Password field
+		JLabel passwordLabel = new JLabel("Mật khẩu");
+		passwordLabel.setFont(new Font("Arial", Font.BOLD, 14));
 
-		// Add components to rightPanel
-		gbc.insets = new Insets(10, 10, 10, 10);
-		gbc.gridx = 0;
-		gbc.gridy = 0;
-		gbc.gridwidth = 2;
-		rightPanel.add(titleLabel, gbc);
-
-		gbc.gridwidth = 1;
-		gbc.gridx = 0;
-		gbc.gridy = 1;
-		gbc.anchor = GridBagConstraints.WEST;
-		rightPanel.add(usernameLabel, gbc);
-		gbc.gridx = 1;
-		rightPanel.add(usernameField, gbc);
-
-		gbc.gridx = 0;
-		gbc.gridy = 2;
-		rightPanel.add(passwordLabel, gbc);
-		gbc.gridx = 1;
-		rightPanel.add(passwordField, gbc);
-		
-		// Panel chứa passwordField + icon
 		JPanel passwordPanel = new JPanel(new BorderLayout());
+		passwordPanel.setOpaque(false);
+
+		passwordField = new JPasswordField();
+		passwordField.setPreferredSize(new Dimension(300, 40));
+		passwordField.setFont(new Font("Arial", Font.PLAIN, 14));
+		passwordField.setBorder(BorderFactory.createCompoundBorder(
+				BorderFactory.createLineBorder(new Color(200, 200, 200)),
+				BorderFactory.createEmptyBorder(5, 10, 5, 10)
+		));
+
+		// Button hiện/ẩn mật khẩu
+		// Tạo và lưu các icon vào biến
+		ImageIcon eyeClosedIcon = new ImageIcon("src/img/eye_off.png");
+		ImageIcon eyeOpenIcon = new ImageIcon("src/img/eye.png");
+
+		// Điều chỉnh kích thước icon và tạo các biến final để sử dụng trong inner class
+		final ImageIcon finalEyeClosedIcon;
+		final ImageIcon finalEyeOpenIcon;
+
+		if (eyeClosedIcon.getIconWidth() > 0) {
+			Image img = eyeClosedIcon.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH);
+			finalEyeClosedIcon = new ImageIcon(img);
+		} else {
+			finalEyeClosedIcon = eyeClosedIcon;
+		}
+
+		if (eyeOpenIcon.getIconWidth() > 0) {
+			Image img = eyeOpenIcon.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH);
+			finalEyeOpenIcon = new ImageIcon(img);
+		} else {
+			finalEyeOpenIcon = eyeOpenIcon;
+		}
+
+		JButton toggleButton = new JButton(finalEyeClosedIcon);
+		toggleButton.setContentAreaFilled(false);
+		toggleButton.setBorderPainted(false);
+		toggleButton.setFocusPainted(false);
+		toggleButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+		toggleButton.addActionListener(new ActionListener() {
+			private boolean isVisible = false;
+
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				isVisible = !isVisible;
+				passwordField.setEchoChar(isVisible ? (char) 0 : '•');
+				toggleButton.setIcon(isVisible ? finalEyeOpenIcon : finalEyeClosedIcon);
+			}
+		});
+
 		passwordPanel.add(passwordField, BorderLayout.CENTER);
 		passwordPanel.add(toggleButton, BorderLayout.EAST);
 
-		gbc.gridx = 1;
-		gbc.gridy = 2;
-		rightPanel.add(passwordPanel, gbc);
+		// Checkbox "Ghi nhớ đăng nhập"
+		JPanel optionsPanel = new JPanel(new BorderLayout());
+		optionsPanel.setOpaque(false);
 
-		gbc.gridx = 1;
-		gbc.gridy = 4;
-		rightPanel.add(loginButton, gbc);
-		
-		gbc.insets = new Insets(10, 3, 3, 3);
-		gbc.gridx = 0;
-		gbc.gridy = 5;
-		gbc.gridwidth = 1; // Cả hai label sẽ chiếm cùng một hàng
+		rememberMeCheckbox = new JCheckBox("Ghi nhớ đăng nhập");
+		rememberMeCheckbox.setFont(new Font("Arial", Font.PLAIN, 14));
+		rememberMeCheckbox.setOpaque(false);
+
+		JLabel forgotPasswordLink = new JLabel("<html><a href='#'>Quên mật khẩu?</a></html>");
+		forgotPasswordLink.setFont(new Font("Arial", Font.PLAIN, 14));
+		forgotPasswordLink.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+		optionsPanel.add(rememberMeCheckbox, BorderLayout.WEST);
+		optionsPanel.add(forgotPasswordLink, BorderLayout.EAST);
+
+		// Login button
+		loginButton = new JButton("Đăng nhập");
+		loginButton.setFont(new Font("Arial", Font.BOLD, 16));
+		loginButton.setForeground(Color.BLACK);
+		loginButton.setBackground(PRIMARY_COLOR);
+		loginButton.setFocusPainted(false);
+		loginButton.setBorderPainted(false);
+		loginButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+		loginButton.setPreferredSize(new Dimension(300, 45));
+
+		// Hiệu ứng hover cho nút đăng nhập
+		// Sử dụng final COLOR để tránh lỗi tương tự
+		final Color hoverColor = new Color(0, 82, 164);
+		loginButton.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseEntered(MouseEvent e) {
+				loginButton.setBackground(hoverColor);
+			}
+
+			@Override
+			public void mouseExited(MouseEvent e) {
+				loginButton.setBackground(PRIMARY_COLOR);
+			}
+		});
+
+		// Panel đăng ký
+		JPanel registerPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+		registerPanel.setOpaque(false);
+
+		JLabel textLabel = new JLabel("Bạn chưa có tài khoản?");
+		textLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+
+		JLabel linkLabel = new JLabel("<html><a href='#'>Đăng ký ngay</a></html>");
+		linkLabel.setFont(new Font("Arial", Font.BOLD, 14));
+		linkLabel.setForeground(PRIMARY_COLOR);
+		linkLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+		// Sự kiện click vào đăng ký
+		linkLabel.addMouseListener(new MouseAdapter() {
+			@Override
+			public void mouseClicked(MouseEvent e) {
+				Register registerForm = new Register();
+				registerForm.setVisible(true);
+				setVisible(false);
+			}
+		});
+
+		registerPanel.add(textLabel);
+		registerPanel.add(Box.createRigidArea(new Dimension(5, 0)));
+		registerPanel.add(linkLabel);
+
+		// Thêm các thành phần vào form
 		gbc.anchor = GridBagConstraints.WEST;
-		rightPanel.add(textLabel, gbc);
 
-		gbc.gridx = 1;
-		gbc.gridy = 5;
-		gbc.anchor = GridBagConstraints.WEST; 
-		rightPanel.add(linkLabel, gbc);
-		
-		mainPanel.add(rightPanel);
+		formPanel.add(usernameLabel, gbc);
+		gbc.insets = new Insets(5, 0, 15, 0);
+		formPanel.add(usernameField, gbc);
 
-		add(mainPanel);
+		gbc.insets = new Insets(10, 0, 5, 0);
+		formPanel.add(passwordLabel, gbc);
+		gbc.insets = new Insets(5, 0, 15, 0);
+		formPanel.add(passwordPanel, gbc);
 
-		// Sự kiện nút
+		gbc.insets = new Insets(0, 0, 20, 0);
+		formPanel.add(optionsPanel, gbc);
+
+		gbc.insets = new Insets(10, 0, 30, 0);
+		formPanel.add(loginButton, gbc);
+
+		// Layout tổng thể cho rightPanel
+		rightPanel.add(headerPanel, BorderLayout.NORTH);
+		rightPanel.add(formPanel, BorderLayout.CENTER);
+		rightPanel.add(registerPanel, BorderLayout.SOUTH);
+
+		return rightPanel;
+	}
+
+	private void setupEventHandlers() {
 		loginButton.addActionListener(new ActionListener() {
-			@SuppressWarnings("unused")
+			@Override
 			public void actionPerformed(ActionEvent e) {
-				String user = usernameField.getText();
-				String pass = new String(passwordField.getPassword());
+				String usernameOrEmail = usernameField.getText().trim();
+				String password = new String(passwordField.getPassword());
 
-				if(authenticateUser(user,pass)) {
-					 JOptionPane.showMessageDialog(Login.this,
-	                            "Đăng nhập thành công!",
-	                            "Thông báo",
-	                            JOptionPane.INFORMATION_MESSAGE);
-					 AdminDashboardView admin = new AdminDashboardView();
-					 admin.setVisible(true);
-					 setVisible(false);
-				}else {
-					JOptionPane.showMessageDialog(Login.this,
-                            "Sai tên đăng nhập hoặc mật khẩu!",
-                            "Thông báo",
-                            JOptionPane.INFORMATION_MESSAGE);
+				if (usernameOrEmail.isEmpty() || password.isEmpty()) {
+					JOptionPane.showMessageDialog(
+							Login.this,
+							"Vui lòng nhập đầy đủ thông tin đăng nhập!",
+							"Lỗi đăng nhập",
+							JOptionPane.ERROR_MESSAGE
+					);
+					return;
+				}
+
+				if (authenticateUser(usernameOrEmail, password)) {
+					JOptionPane.showMessageDialog(
+							Login.this,
+							"Đăng nhập thành công!",
+							"Thông báo",
+							JOptionPane.INFORMATION_MESSAGE
+					);
+
+					// Chuyển đến trang dashboard
+					AdminDashboardView admin = new AdminDashboardView("Admin", "admin");
+					admin.setVisible(true);
+					setVisible(false);
+				} else {
+					JOptionPane.showMessageDialog(
+							Login.this,
+							"Sai tên đăng nhập hoặc mật khẩu!",
+							"Lỗi đăng nhập",
+							JOptionPane.ERROR_MESSAGE
+					);
 				}
 			}
 		});
-		toggleButton.addActionListener(new ActionListener() {
-		    private boolean isVisible = false;
-
-		    public void actionPerformed(ActionEvent e) {
-		        isVisible = !isVisible;
-		        if (isVisible) {
-		            passwordField.setEchoChar((char) 0); // Hiện
-		            toggleButton.setIcon(eyeOpenIcon);
-		        } else {
-		            passwordField.setEchoChar('*'); // Ẩn
-		            toggleButton.setIcon(eyeClosedIcon);
-		        }
-		    }
-		});
-
 	}
-	
-	@SuppressWarnings("unused")
-	private boolean authenticateUser(String username, String password) {
-	        // Biến lưu kết quả xác thực
-	        boolean isAuthenticated = false;
 
-	        // Thực hiện kết nối và truy vấn cơ sở dữ liệu
-	        try (Connection connection = DatabaseConnection.getConnection();
-	             PreparedStatement statement = connection.prepareStatement("SELECT * FROM users WHERE username = ? AND password = ?")) {
-
-	            statement.setString(1, username);
-	            statement.setString(2, password);
-
-	            try (ResultSet resultSet = statement.executeQuery()) {
-	                // Nếu có dòng trả về, xác thực thành công
-	                if (resultSet.next()) {
-	                    isAuthenticated = true;
-	                }
-	            }
-	        } catch (SQLException e) {
-	            e.printStackTrace();
-	            JOptionPane.showMessageDialog(this,
-	                    "Lỗi kết nối cơ sở dữ liệu: " + e.getMessage(),
-	                    "Lỗi",
-	                    JOptionPane.ERROR_MESSAGE);
-	        }
-
-	        return isAuthenticated;
-	    }
+	private boolean authenticateUser(String usernameOrEmail, String password) {
+		try (Connection connection = DatabaseConnection.getConnection()) {
+			UserRepository userRepository = new UserRepository(connection);
+			Optional<User> user = userRepository.authenticate(usernameOrEmail, password);
+			return user.isPresent();
+		} catch (SQLException e) {
+			e.printStackTrace();
+			JOptionPane.showMessageDialog(
+					this,
+					"Lỗi kết nối cơ sở dữ liệu: " + e.getMessage(),
+					"Lỗi",
+					JOptionPane.ERROR_MESSAGE
+			);
+			return false;
+		}
+	}
 
 	public static void main(String[] args) {
-		 // Thiết lập giao diện
 		try {
-		    UIManager.setLookAndFeel("javax.swing.plaf.nimbus.NimbusLookAndFeel");
+			// Sử dụng giao diện hệ thống thay vì Nimbus
+			UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
 		} catch (Exception e) {
-		    e.printStackTrace();
+			e.printStackTrace();
 		}
 
-        // Tạo và hiển thị biểu mẫu đăng nhập
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-            	Login loginForm = new Login();
-                loginForm.setVisible(true);
-            }
-        });
-    }
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				Login loginForm = new Login();
+				loginForm.setVisible(true);
+			}
+		});
+	}
 }
