@@ -2,6 +2,7 @@ package service;
 
 import model.Domain;
 import repository.DatabaseConnection;
+import repository.DomainExtensionRepository;
 import repository.DomainRepository;
 
 import java.sql.Connection;
@@ -18,23 +19,12 @@ public class DomainExtensionService {
             ".com", ".net", ".org", ".vn", ".com.vn", ".info", ".biz", ".store"
     };
 
-    // Giá mặc định cho từng loại phần mở rộng
-    private static final Map<String, Double> DEFAULT_PRICES = new HashMap<>();
-    static {
-        DEFAULT_PRICES.put(".com", 200000.0);
-        DEFAULT_PRICES.put(".net", 150000.0);
-        DEFAULT_PRICES.put(".org", 180000.0);
-        DEFAULT_PRICES.put(".vn", 400000.0);
-        DEFAULT_PRICES.put(".com.vn", 350000.0);
-        DEFAULT_PRICES.put(".info", 120000.0);
-        DEFAULT_PRICES.put(".biz", 130000.0);
-        DEFAULT_PRICES.put(".store", 250000.0);
-    }
-
     private DomainRepository domainRepository;
+    private DomainExtensionRepository extensionRepository;
 
     public DomainExtensionService(Connection connection) {
         this.domainRepository = new DomainRepository(connection);
+        this.extensionRepository = new DomainExtensionRepository(connection);
     }
 
     // Constructor mặc định để AdminDashboardView có thể khởi tạo
@@ -42,30 +32,60 @@ public class DomainExtensionService {
         try {
             Connection connection = DatabaseConnection.getConnection();
             this.domainRepository = new DomainRepository(connection);
+            this.extensionRepository = new DomainExtensionRepository(connection);
         } catch (SQLException e) {
             System.err.println("Error creating DomainExtensionService: " + e.getMessage());
             e.printStackTrace();
 
             // Sử dụng repository mặc định nếu không thể kết nối
             this.domainRepository = new DomainRepository();
+            this.extensionRepository = new DomainExtensionRepository();
         }
     }
 
     // Phương thức được sử dụng bởi AdminDashboardView
     public List<String> getAllExtensions() {
-        return Arrays.asList(POPULAR_EXTENSIONS);
+        try {
+            return extensionRepository.getAllExtensions();
+        } catch (SQLException e) {
+            System.err.println("Error getting extensions from database: " + e.getMessage());
+            e.printStackTrace();
+            return Arrays.asList(POPULAR_EXTENSIONS); // Fallback to hardcoded list if DB fails
+        }
     }
 
     public double getDefaultPrice(String extension) {
-        return DEFAULT_PRICES.getOrDefault(extension, 100000.0); // Giá mặc định nếu không tìm thấy
+        try {
+            return extensionRepository.getDefaultPrice(extension);
+        } catch (SQLException e) {
+            System.err.println("Error getting default price from database: " + e.getMessage());
+            e.printStackTrace();
+            return 100000.0; // Giá mặc định nếu không thể lấy từ CSDL
+        }
     }
 
     // Phương thức tạo danh sách tất cả các tên miền với mọi phần mở rộng
     public static List<Domain> generateDomainsWithAllExtensions(String domainName) {
         List<Domain> domains = new ArrayList<>();
+        DomainExtensionService service = new DomainExtensionService();
+        List<String> extensions;
+        Map<String, Double> priceMap = new HashMap<>();
 
-        for (String extension : POPULAR_EXTENSIONS) {
-            double price = DEFAULT_PRICES.getOrDefault(extension, 100000.0);
+        try {
+            // Lấy tất cả các phần mở rộng từ CSDL
+            DomainExtensionRepository repo = new DomainExtensionRepository();
+            extensions = repo.getAllExtensions();
+            priceMap = repo.getAllExtensionsWithPrices();
+        } catch (SQLException e) {
+            System.err.println("Error getting extensions from database: " + e.getMessage());
+            e.printStackTrace();
+
+            // Fallback to hardcoded extensions if database access fails
+            extensions = Arrays.asList(POPULAR_EXTENSIONS);
+        }
+
+        for (String extension : extensions) {
+            double price = priceMap.getOrDefault(extension, 100000.0);
             Domain domain = new Domain();
             domain.setName(domainName);
             domain.setExtension(extension);
@@ -91,5 +111,29 @@ public class DomainExtensionService {
     // Lấy các phần mở rộng phổ biến nhất
     public List<String> getPopularExtensions() {
         return Arrays.asList(".com", ".net", ".org", ".vn");
+    }
+
+    // Thêm hoặc cập nhật một phần mở rộng
+    public boolean saveExtension(String extension, double price, String description) {
+        try {
+            extensionRepository.saveExtension(extension, price, description);
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Error saving extension: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // Xóa một phần mở rộng
+    public boolean deleteExtension(String extension) {
+        try {
+            extensionRepository.deleteExtension(extension);
+            return true;
+        } catch (SQLException e) {
+            System.err.println("Error deleting extension: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
     }
 }

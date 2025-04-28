@@ -519,3 +519,5 @@ public class DashboardPanel extends JPanel {
         return panel;
     }
 }
+
+

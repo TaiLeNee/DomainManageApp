@@ -4,10 +4,10 @@ import java.time.LocalDateTime;
 
 public class Domain {
     private int id;
-    private String name;        // Chỉ phần tên (ví dụ: google, facebook)
-    private String extension;   // Phần đuôi (.com, .vn, .io)
-    private double price;       // Giá dựa trên extension cho 1 tháng
-    private String status;      // Available, Rented, Reserved, etc.
+    private String name; // Chỉ phần tên (ví dụ: google, facebook)
+    private String extension; // Phần đuôi (.com, .vn, .io)
+    private double price; // Giá dựa trên extension cho 1 tháng
+    private String status; // Available, Rented, Reserved, etc.
     private LocalDateTime expiryDate; // Ngày hết hạn thuê
 
     // Constructors
@@ -87,16 +87,8 @@ public class Domain {
 
     // Tính giá cho một khoảng thời gian thuê
     public double calculatePriceForPeriod(int months) {
-        // Giảm giá khi thuê dài hạn
-        switch (months) {
-            case 1:
-                return price; // Giá gốc cho 1 tháng
-            case 6:
-                return price * 6 * 0.9; // Giảm 10% khi thuê 6 tháng
-            case 12:
-                return price * 12 * 0.8; // Giảm 20% khi thuê 12 tháng
-            default:
-                return price * months; // Không có khuyến mãi
-        }
+        // Sử dụng DomainService để tính toán giá
+        service.DomainService domainService = new service.DomainService();
+        return domainService.calculatePriceForPeriod(this.price, months);
     }
 }
