@@ -263,60 +263,135 @@ public class AdminDashboardView extends JFrame {
         userPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(66, 81, 114)),
                 new EmptyBorder(15, 20, 15, 20)));
-        userPanel.setPreferredSize(new Dimension(270, 80));
+        userPanel.setPreferredSize(new Dimension(270, 140)); // Tăng chiều cao để chứa avatar lớn hơn
 
-        // Panel avatar với hình tròn
-        JPanel avatarPanel = new JPanel() {
+        // Sử dụng user-icon với kích thước lớn hơn
+        JPanel avatarPanel = new JPanel(new BorderLayout());
+        avatarPanel.setOpaque(false);
+        avatarPanel.setPreferredSize(new Dimension(60, 60));
+        avatarPanel.setMinimumSize(new Dimension(60, 60));
+        avatarPanel.setMaximumSize(new Dimension(60, 60));
+
+        JLabel avatarLabel = new JLabel();
+        try {
+            ImageIcon originalIcon = new ImageIcon("src/img/user-icon.png");
+            if (originalIcon.getIconWidth() > 0) {
+                Image img = originalIcon.getImage().getScaledInstance(60, 60, Image.SCALE_SMOOTH);
+                avatarLabel.setIcon(new ImageIcon(img));
+            }
+        } catch (Exception ex) {
+            // Fallback nếu không tìm thấy icon
+            avatarLabel.setText(loggedInUser.getUsername().substring(0, 1).toUpperCase());
+            avatarLabel.setHorizontalAlignment(JLabel.CENTER);
+            avatarLabel.setFont(new Font("Segoe UI", Font.BOLD, 40)); // Tăng kích thước font cho phù hợp
+            avatarLabel.setForeground(Color.WHITE);
+        }
+        avatarPanel.add(avatarLabel, BorderLayout.CENTER);
+
+        // Thay đổi bố cục panel chứa thông tin người dùng
+        JPanel rightPanel = new JPanel(new BorderLayout(20, 10));
+        rightPanel.setOpaque(false);
+
+        // Nút đăng xuất với thiết kế hiện đại hơn
+        JButton logoutBtn = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                if (getModel().isRollover()) {
+                    g2.setColor(new Color(255, 77, 77, 80));
+                    g2.fillOval(0, 0, getWidth() - 1, getHeight() - 1);
+                }
+                g2.dispose();
                 super.paintComponent(g);
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                g2d.setColor(new Color(66, 91, 138));
-                g2d.fillOval(0, 0, getWidth(), getHeight());
-                g2d.dispose();
             }
         };
-        avatarPanel.setPreferredSize(new Dimension(40, 40));
-        avatarPanel.setMinimumSize(new Dimension(40, 40));
-        avatarPanel.setMaximumSize(new Dimension(40, 40));
 
-        String firstLetter = loggedInUser.getUsername().substring(0, 1).toUpperCase();
-        JLabel avatarLabel = new JLabel(firstLetter);
-        avatarLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        avatarLabel.setForeground(Color.WHITE);
-        avatarLabel.setHorizontalAlignment(JLabel.CENTER);
-        avatarPanel.add(avatarLabel);
+        // Tạo icon đăng xuất với kích thước phù hợp
+        try {
+            ImageIcon originalIcon = new ImageIcon("src/img/logout.png");
+            if (originalIcon.getIconWidth() > 0) {
+                Image img = originalIcon.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH);
+                logoutBtn.setIcon(new ImageIcon(img));
+            }
+        } catch (Exception ex) {
+            logoutBtn.setText("Logout");
+        }
 
-        JPanel userInfo = new JPanel(new GridLayout(2, 1, 0, 0));
-        userInfo.setOpaque(false);
-        userInfo.setBorder(new EmptyBorder(0, 15, 0, 0));
-
-        JLabel nameLabel = new JLabel(loggedInUser.getFullName());
-        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        nameLabel.setForeground(Color.WHITE);
-
-        JLabel roleLabel = new JLabel(loggedInUser.getRole());
-        roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        roleLabel.setForeground(new Color(168, 183, 214));
-
-        userInfo.add(nameLabel);
-        userInfo.add(roleLabel);
-
-        // Nút đăng xuất hiện đại hơn
-        JButton logoutBtn = new JButton();
-        logoutBtn.setIcon(new ImageIcon("src/img/logout.png"));
         logoutBtn.setContentAreaFilled(false);
         logoutBtn.setBorderPainted(false);
         logoutBtn.setFocusPainted(false);
         logoutBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         logoutBtn.setToolTipText("Đăng xuất");
+        logoutBtn.setPreferredSize(new Dimension(40, 40));
+
+        // Thêm hiệu ứng hover
+        logoutBtn.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                logoutBtn.repaint();
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                logoutBtn.repaint();
+            }
+        });
 
         logoutBtn.addActionListener(e -> logout());
 
+        // Cải thiện hiển thị thông tin người dùng với bố cục phù hợp hơn
+        JPanel userInfo = new JPanel();
+        userInfo.setLayout(new BoxLayout(userInfo, BoxLayout.Y_AXIS));
+        userInfo.setOpaque(false);
+        userInfo.setBorder(new EmptyBorder(30, 10, 5, 0)); // Tăng padding top từ 30px lên 40px để di chuyển xuống 10px
+        userInfo.setAlignmentY(Component.CENTER_ALIGNMENT);
+
+        // Tạo nameLabel hiển thị tên người dùng rõ ràng hơn
+        JLabel nameLabel = new JLabel(loggedInUser.getFullName());
+        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        nameLabel.setForeground(Color.WHITE);
+        nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        // Tạo một panel có background để làm nổi bật vai trò người dùng
+        JPanel roleLabelPanel = new JPanel();
+        roleLabelPanel.setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        roleLabelPanel.setOpaque(false);
+        roleLabelPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        roleLabelPanel.setBorder(new EmptyBorder(4, 0, 0, 0));
+
+        // Cải thiện roleLabel với thiết kế "badge" hiện đại
+        JLabel roleLabel = new JLabel(loggedInUser.getRole()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Vẽ background cho badge
+                g2.setColor(new Color(78, 115, 223, 80));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+
+                super.paintComponent(g2);
+                g2.dispose();
+            }
+        };
+        roleLabel.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        roleLabel.setForeground(new Color(208, 223, 255));
+        roleLabel.setBorder(new EmptyBorder(4, 8, 4, 8));
+
+        roleLabelPanel.add(roleLabel);
+
+        // Thêm các thành phần vào userInfo panel
+        userInfo.add(nameLabel);
+        userInfo.add(Box.createRigidArea(new Dimension(0, 2)));
+        userInfo.add(roleLabelPanel);
+
+        rightPanel.add(userInfo, BorderLayout.CENTER);
+        rightPanel.add(logoutBtn, BorderLayout.EAST);
+
+        // Bố cục mới: avatar bên trái, panel thông tin bên phải
         userPanel.add(avatarPanel, BorderLayout.WEST);
-        userPanel.add(userInfo, BorderLayout.CENTER);
-        userPanel.add(logoutBtn, BorderLayout.EAST);
+        userPanel.add(rightPanel, BorderLayout.CENTER);
 
         // Thêm vào sidebar
         sidebarPanel.add(logoPanel, BorderLayout.NORTH);
@@ -359,22 +434,6 @@ public class AdminDashboardView extends JFrame {
         infoPanel.setBackground(Color.WHITE);
         infoPanel.setBorder(new EmptyBorder(0, 0, 0, 25));
 
-        // Thêm nút tìm kiếm toàn cục
-        JTextField searchField = new JTextField(20);
-        searchField.setPreferredSize(new Dimension(200, 35));
-        searchField.setBorder(BorderFactory.createCompoundBorder(
-                new LineBorder(BORDER_COLOR, 1, true),
-                new EmptyBorder(0, 10, 0, 10)));
-        searchField.putClientProperty("JTextField.placeholderText", "Tìm kiếm...");
-
-        JButton searchButton = new JButton();
-        searchButton.setIcon(new ImageIcon("src/img/search.png"));
-        searchButton.setPreferredSize(new Dimension(35, 35));
-        searchButton.setBorderPainted(false);
-        searchButton.setFocusPainted(false);
-        searchButton.setContentAreaFilled(false);
-        searchButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
         // Date-time label hiện đại
         JLabel dateLabel = new JLabel();
         SimpleDateFormat sdf = new SimpleDateFormat("EEEE, dd/MM/yyyy");
@@ -386,8 +445,8 @@ public class AdminDashboardView extends JFrame {
         dateLabel.setIconTextGap(10);
 
         // Thêm các thành phần vào panel thông tin
-        infoPanel.add(searchField);
-        infoPanel.add(searchButton);
+        // infoPanel.add(searchField);
+        // infoPanel.add(searchButton);
         infoPanel.add(dateLabel);
 
         headerPanel.add(titlePanel, BorderLayout.WEST);
