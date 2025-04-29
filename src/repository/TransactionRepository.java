@@ -49,6 +49,14 @@ public class TransactionRepository {
                         transaction.setUserId(rs.getInt("user_id"));
                     }
 
+                    // Lấy giá trị total từ database
+                    if (hasColumn(rs, "total")) {
+                        double total = rs.getDouble("total");
+                        transaction.setTotal(total);
+                        // Gán giá trị cho amount để đảm bảo tương thích với code hiện tại
+                        transaction.setAmount(total);
+                    }
+
                     // Cố gắng lấy các trường khác nếu có
                     if (hasColumn(rs, "transaction_type")) {
                         transaction.setTransactionType(rs.getString("transaction_type"));

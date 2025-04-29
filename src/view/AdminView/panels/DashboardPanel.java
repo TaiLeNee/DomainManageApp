@@ -99,12 +99,13 @@ public class DashboardPanel extends JPanel {
             List<Order> orders = orderRepository.getAllOrders();
             totalOrders = orders.size();
 
-            // Tính tổng doanh thu
+            // Tính tổng doanh thu - sử dụng field total thay vì amount
             List<Transaction> transactions = transactionRepository.getAllTransactions();
-            totalRevenue = transactions.stream()
-                    .mapToDouble(Transaction::getAmount)
-                    .sum();
-
+            for (Transaction transaction : transactions) {
+                System.out.println("Transaction ID: " + transaction.getId() + ", Total: " + transaction.getTotal());
+                totalRevenue += transaction.getTotal();
+            }
+            System.out.println("Doanh thu: " + totalRevenue);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
                     "Không thể tải dữ liệu thống kê: " + e.getMessage(),
