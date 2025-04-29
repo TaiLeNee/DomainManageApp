@@ -12,6 +12,7 @@ import java.util.Date;
 
 // Import các lớp model
 import model.Domain;
+import model.User;
 
 // Import các lớp repository
 import repository.DomainRepository;
@@ -24,10 +25,12 @@ import repository.RentalPeriodRepository;
 import service.DomainService;
 import service.UserService;
 import service.DomainExtensionService;
+import utils.UserSession;
 import view.Login;
 
 // Import các panel
 import view.AdminView.panels.*;
+import view.UserView.panels.UsersPanel;
 
 public class AdminDashboardView extends JFrame {
     // Panels chính
@@ -80,8 +83,7 @@ public class AdminDashboardView extends JFrame {
     private static final Font FONT_BUTTON = new Font("Segoe UI", Font.BOLD, 14);
 
     // Thông tin người dùng
-    private String username;
-    private String role;
+    private User loggedInUser;
 
     // Các panel chức năng
     private DashboardPanel dashboardPanel;
@@ -91,9 +93,9 @@ public class AdminDashboardView extends JFrame {
     private ExtensionsPanel extensionsPanel;
     private ReportsPanel reportsPanel;
 
-    public AdminDashboardView(String username, String role) {
-        this.username = username;
-        this.role = role;
+    public AdminDashboardView() {
+        // Lấy thông tin người dùng từ session
+        this.loggedInUser = UserSession.getInstance().getCurrentUser();
 
         // Khởi tạo repository và service
         domainRepository = new DomainRepository();
@@ -124,6 +126,10 @@ public class AdminDashboardView extends JFrame {
 
         // Mở rộng cửa sổ
         setExtendedState(JFrame.MAXIMIZED_BOTH);
+    }
+
+    public AdminDashboardView(String username, String role) {
+        this(); // Gọi constructor mặc định để đảm bảo tính tương thích ngược
     }
 
     private void setupModernUI() {
@@ -276,7 +282,8 @@ public class AdminDashboardView extends JFrame {
         avatarPanel.setMinimumSize(new Dimension(40, 40));
         avatarPanel.setMaximumSize(new Dimension(40, 40));
 
-        JLabel avatarLabel = new JLabel(username.substring(0, 1).toUpperCase());
+        String firstLetter = loggedInUser.getUsername().substring(0, 1).toUpperCase();
+        JLabel avatarLabel = new JLabel(firstLetter);
         avatarLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         avatarLabel.setForeground(Color.WHITE);
         avatarLabel.setHorizontalAlignment(JLabel.CENTER);
@@ -286,11 +293,11 @@ public class AdminDashboardView extends JFrame {
         userInfo.setOpaque(false);
         userInfo.setBorder(new EmptyBorder(0, 15, 0, 0));
 
-        JLabel nameLabel = new JLabel(username);
+        JLabel nameLabel = new JLabel(loggedInUser.getFullName());
         nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
         nameLabel.setForeground(Color.WHITE);
 
-        JLabel roleLabel = new JLabel(role);
+        JLabel roleLabel = new JLabel(loggedInUser.getRole());
         roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         roleLabel.setForeground(new Color(168, 183, 214));
 
@@ -593,17 +600,15 @@ public class AdminDashboardView extends JFrame {
                 JOptionPane.PLAIN_MESSAGE);
 
         if (confirm == JOptionPane.YES_OPTION) {
+            // Xóa thông tin đăng nhập hiện tại
+            UserSession.getInstance().clearSession();
+
             this.dispose();
             Login loginForm = new Login();
             loginForm.setVisible(true);
         }
     }
 
-    /**
-     * Phương thức main để chạy trực tiếp AdminDashboardView
-     *
-     * @param args tham số dòng lệnh
-     */
     public static void main(String[] args) {
         // Đảm bảo sử dụng giao diện look and feel của hệ thống
         try {
@@ -614,8 +619,8 @@ public class AdminDashboardView extends JFrame {
 
         // Chạy giao diện trên EDT (Event Dispatch Thread)
         SwingUtilities.invokeLater(() -> {
-            // Tạo AdminDashboardView với thông tin admin mẫu
-            AdminDashboardView dashboard = new AdminDashboardView("Admin", "Administrator");
+            // Tạo AdminDashboardView với session hiện tại
+            AdminDashboardView dashboard = new AdminDashboardView();
             dashboard.setVisible(true);
         });
     }

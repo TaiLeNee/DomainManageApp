@@ -1,4 +1,4 @@
-package view.AdminView.panels;
+package view.UserView.panels;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
