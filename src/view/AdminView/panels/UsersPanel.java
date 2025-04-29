@@ -1,4 +1,4 @@
-package view.UserView.panels;
+package view.AdminView.panels;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -49,7 +49,7 @@ public class UsersPanel extends JPanel {
         JTextField searchField = new JTextField(25);
         searchField.setPreferredSize(new Dimension(300, 35));
 
-        roleFilter = new JComboBox<>(new String[] { "Tất cả vai trò", "Admin", "Staff", "Customer" });
+        roleFilter = new JComboBox<>(new String[] { "Tất cả vai trò", "Admin", "Customer" });
         roleFilter.setPreferredSize(new Dimension(150, 35));
 
         roleFilter.addActionListener(e -> filterUsers());
@@ -89,9 +89,6 @@ public class UsersPanel extends JPanel {
                 switch (value.toString()) {
                     case "Admin":
                         c.setForeground(new Color(231, 76, 60));
-                        break;
-                    case "Staff":
-                        c.setForeground(new Color(243, 156, 18));
                         break;
                     case "Customer":
                         c.setForeground(new Color(41, 128, 185));
@@ -216,9 +213,6 @@ public class UsersPanel extends JPanel {
                     roleName = "Admin";
                     break;
                 case 2:
-                    roleName = "Staff";
-                    break;
-                case 3:
                     roleName = "Customer";
                     break;
                 default:
@@ -260,11 +254,8 @@ public class UsersPanel extends JPanel {
             case "Admin":
                 roleId = 1;
                 break;
-            case "Staff":
-                roleId = 2;
-                break;
             case "Customer":
-                roleId = 3;
+                roleId = 2;
                 break;
             default:
                 roleId = 0;

@@ -2,7 +2,7 @@ package model;
 
 public enum Role {
     ADMIN(1, "ADMIN"),
-    BUYER(2, "BUYER");
+    CUSTOMER(2, "CUSTOMER");
 
     private final int id;
     private final String name;

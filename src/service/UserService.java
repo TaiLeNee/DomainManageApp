@@ -103,6 +103,11 @@ public class UserService {
                 throw new IllegalArgumentException("Email đã tồn tại");
             }
 
+            // Đặt vai trò mặc định là Customer nếu chưa được chỉ định
+            if (user.getRole() == null || user.getRole().isEmpty()) {
+                user.setRole("Customer");
+            }
+
             userRepository.save(user);
             return true;
         } catch (SQLException | IllegalArgumentException e) {
@@ -129,10 +134,9 @@ public class UserService {
         return user != null && "Admin".equalsIgnoreCase(user.getRole());
     }
 
-    // Kiểm tra xem người dùng có quyền staff không
+    // Kiểm tra xem người dùng có quyền staff không (giờ đây chỉ Admin có quyền này)
     public boolean isStaff(User user) {
-        return user != null &&
-                ("Admin".equalsIgnoreCase(user.getRole()) || "Staff".equalsIgnoreCase(user.getRole()));
+        return user != null && "Admin".equalsIgnoreCase(user.getRole());
     }
 
     // Tạo người dùng mới với quyền khách hàng
