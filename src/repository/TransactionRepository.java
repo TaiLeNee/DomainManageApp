@@ -33,12 +33,11 @@ public class TransactionRepository {
         try {
             String sql = "SELECT * FROM transactions ORDER BY timestamp DESC";
             try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery(sql)) {
+                    ResultSet rs = stmt.executeQuery(sql)) {
                 while (rs.next()) {
                     Transaction transaction = new Transaction();
                     transaction.setId(rs.getInt("id"));
                     transaction.setOrderId(rs.getInt("order_id"));
-                    transaction.setAmount(rs.getDouble("amount"));
 
                     // Kiểm tra xem có cột domain_id không
                     if (hasColumn(rs, "domain_id")) {
@@ -226,7 +225,7 @@ public class TransactionRepository {
     public double getTotalRevenue() throws SQLException {
         String sql = "SELECT SUM(amount) as total FROM transactions WHERE status = 'Completed'";
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+                ResultSet rs = stmt.executeQuery(sql)) {
             if (rs.next()) {
                 return rs.getDouble("total");
             }

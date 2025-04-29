@@ -30,7 +30,6 @@ import view.Login;
 
 // Import các panel
 import view.AdminView.panels.*;
-import view.UserView.panels.UsersPanel;
 
 public class AdminDashboardView extends JFrame {
     // Panels chính
