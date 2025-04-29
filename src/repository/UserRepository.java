@@ -118,7 +118,7 @@ public class UserRepository {
         List<User> users = new ArrayList<>();
         String sql = "SELECT * FROM users";
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+                ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 users.add(new User(
                         rs.getInt("id"),
@@ -174,7 +174,7 @@ public class UserRepository {
 
     // Phương thức xác thực người dùng
     public Optional<User> authenticate(String usernameOrEmail, String password) throws SQLException {
-        String sql = "SELECT * FROM users WHERE (username = ? OR email = ?) AND active = 1";
+        String sql = "SELECT * FROM users WHERE (username = ? OR email = ?)";
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, usernameOrEmail);
             stmt.setString(2, usernameOrEmail);
@@ -187,14 +187,30 @@ public class UserRepository {
                         user.setId(rs.getInt("id"));
                         user.setUsername(rs.getString("username"));
                         user.setEmail(rs.getString("email"));
-                        user.setFullName(rs.getString("full_name"));
+                        user.setFullName(rs.getString("fullname"));
                         user.setRole(rs.getString("role"));
-                        user.setActive(rs.getBoolean("active"));
+
+                        // Kiểm tra có cột active không trước khi đọc
+                        try {
+                            rs.findColumn("active");
+                            user.setActive(rs.getBoolean("active"));
+                            // Kiểm tra nếu tài khoản không active
+                            if (!rs.getBoolean("active")) {
+                                return Optional.empty();
+                            }
+                        } catch (SQLException e) {
+                            // Nếu không có cột active, mặc định là active
+                            user.setActive(true);
+                        }
 
                         // Lấy ngày tạo nếu có
-                        Timestamp createdAtTimestamp = rs.getTimestamp("created_at");
-                        if (createdAtTimestamp != null) {
-                            user.setCreatedDate(new Date(createdAtTimestamp.getTime()));
+                        try {
+                            Timestamp createdAtTimestamp = rs.getTimestamp("created_at");
+                            if (createdAtTimestamp != null) {
+                                user.setCreatedDate(new Date(createdAtTimestamp.getTime()));
+                            }
+                        } catch (SQLException e) {
+                            // Nếu không có cột created_at, bỏ qua
                         }
 
                         return Optional.of(user);

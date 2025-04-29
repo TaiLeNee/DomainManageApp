@@ -8,7 +8,7 @@ public class User {
     private String username;
     private String password;
     private String email;
-    private String role; // ADMIN or BUYER
+    private String role; // ADMIN or USER
     private boolean active = true; // Mặc định là hoạt động
     private Date createdDate = new Date(); // Mặc định là ngày hiện tại
 
@@ -36,7 +36,7 @@ public class User {
 
     // Constructor đầy đủ với active và createdDate
     public User(int id, String fullName, String username, String password, String email, String role, boolean active,
-                Date createdDate) {
+            Date createdDate) {
         this.id = id;
         this.fullName = fullName;
         this.username = username;
@@ -115,16 +115,14 @@ public class User {
     // Phương thức tiện ích để lấy int từ role string cho AdminDashboardView
     public int getRoleAsInt() {
         if (role == null) {
-            return 3; // Customer là mặc định
+            return 2; // USER là mặc định
         }
 
         switch (role.toLowerCase()) {
             case "admin":
                 return 1;
-            case "staff":
-                return 2;
             default:
-                return 3; // Customer
+                return 2; // USER
         }
     }
 }

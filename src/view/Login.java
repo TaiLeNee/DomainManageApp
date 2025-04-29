@@ -148,8 +148,7 @@ public class Login extends JFrame {
 		usernameField.setFont(new Font("Arial", Font.PLAIN, 14));
 		usernameField.setBorder(BorderFactory.createCompoundBorder(
 				BorderFactory.createLineBorder(new Color(200, 200, 200)),
-				BorderFactory.createEmptyBorder(5, 10, 5, 10)
-		));
+				BorderFactory.createEmptyBorder(5, 10, 5, 10)));
 
 		// Password field
 		JLabel passwordLabel = new JLabel("Mật khẩu");
@@ -163,8 +162,7 @@ public class Login extends JFrame {
 		passwordField.setFont(new Font("Arial", Font.PLAIN, 14));
 		passwordField.setBorder(BorderFactory.createCompoundBorder(
 				BorderFactory.createLineBorder(new Color(200, 200, 200)),
-				BorderFactory.createEmptyBorder(5, 10, 5, 10)
-		));
+				BorderFactory.createEmptyBorder(5, 10, 5, 10)));
 
 		// Button hiện/ẩn mật khẩu
 		// Tạo và lưu các icon vào biến
@@ -312,8 +310,7 @@ public class Login extends JFrame {
 							Login.this,
 							"Vui lòng nhập đầy đủ thông tin đăng nhập!",
 							"Lỗi đăng nhập",
-							JOptionPane.ERROR_MESSAGE
-					);
+							JOptionPane.ERROR_MESSAGE);
 					return;
 				}
 
@@ -322,20 +319,38 @@ public class Login extends JFrame {
 							Login.this,
 							"Đăng nhập thành công!",
 							"Thông báo",
-							JOptionPane.INFORMATION_MESSAGE
-					);
+							JOptionPane.INFORMATION_MESSAGE);
 
-					// Chuyển đến trang dashboard
-					AdminDashboardView admin = new AdminDashboardView("Admin", "admin");
-					admin.setVisible(true);
-					setVisible(false);
+					// Lấy thông tin người dùng từ session
+					utils.UserSession userSession = utils.UserSession.getInstance();
+					User currentUser = userSession.getCurrentUser();
+
+					// Phân quyền và chuyển hướng đến giao diện tương ứng
+					if (userSession.isAdmin()) {
+						AdminDashboardView adminView = new AdminDashboardView(currentUser.getFullName(),
+								currentUser.getRole());
+						adminView.setVisible(true);
+						setVisible(false);
+					} else if (userSession.isUser()) {
+						// Chuyển đến trang dashboard cho người dùng thường
+						view.UserView.UserDashboardView userView = new view.UserView.UserDashboardView(
+								currentUser.getFullName(), currentUser.getRole());
+						userView.setVisible(true);
+						setVisible(false);
+					} else {
+						// Role không được hỗ trợ
+						JOptionPane.showMessageDialog(
+								Login.this,
+								"Vai trò của tài khoản không hợp lệ hoặc chưa được hỗ trợ!",
+								"Lỗi phân quyền",
+								JOptionPane.ERROR_MESSAGE);
+					}
 				} else {
 					JOptionPane.showMessageDialog(
 							Login.this,
 							"Sai tên đăng nhập hoặc mật khẩu!",
 							"Lỗi đăng nhập",
-							JOptionPane.ERROR_MESSAGE
-					);
+							JOptionPane.ERROR_MESSAGE);
 				}
 			}
 		});
@@ -344,16 +359,22 @@ public class Login extends JFrame {
 	private boolean authenticateUser(String usernameOrEmail, String password) {
 		try (Connection connection = DatabaseConnection.getConnection()) {
 			UserRepository userRepository = new UserRepository(connection);
-			Optional<User> user = userRepository.authenticate(usernameOrEmail, password);
-			return user.isPresent();
+			Optional<User> userOptional = userRepository.authenticate(usernameOrEmail, password);
+
+			if (userOptional.isPresent()) {
+				User user = userOptional.get();
+				// Lưu thông tin người dùng vào UserSession
+				utils.UserSession.getInstance().setCurrentUser(user);
+				return true;
+			}
+			return false;
 		} catch (SQLException e) {
 			e.printStackTrace();
 			JOptionPane.showMessageDialog(
 					this,
 					"Lỗi kết nối cơ sở dữ liệu: " + e.getMessage(),
 					"Lỗi",
-					JOptionPane.ERROR_MESSAGE
-			);
+					JOptionPane.ERROR_MESSAGE);
 			return false;
 		}
 	}
