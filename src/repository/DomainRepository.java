@@ -1,12 +1,11 @@
 package repository;
 
-import model.Domain;
-import utils.ValidationUtils;
-
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import model.Domain;
+import utils.ValidationUtils;
 
 public class DomainRepository {
     private Connection connection;
