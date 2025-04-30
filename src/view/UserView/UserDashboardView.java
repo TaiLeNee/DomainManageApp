@@ -15,7 +15,17 @@ public class UserDashboardView extends JFrame {
     private JPanel contentPane;
     private User loggedInUser;
     private final Color PRIMARY_COLOR = new Color(0, 102, 204);
+    private CardLayout cardLayout;
+    private JPanel mainContentPanel;
+    private java.util.List<JButton> menuButtons = new java.util.ArrayList<>();
 
+    //Cardsname các panel
+    private static final String DASHBOARD_PANEL = "DASHBOARD_PANEL";
+    private static final String SEARCH_DOMAIN_PANEL = "SEARCH_DOMAIN_PANEL";
+    private static final String MY_DOMAINS_PANEL = "MY_DOMAINS_PANEL";
+    private static final String ORDERS_PANEL = "ORDERS_PANEL";
+    private static final String PROFILE_PANEL = "PROFILE_PANEL";
+    private static final String SUPPORT_PANEL = "SUPPORT_PANEL";
     /**
      * Create the frame.
      */
@@ -50,8 +60,18 @@ public class UserDashboardView extends JFrame {
         JPanel sidebarPanel = createSidebarPanel();
         contentPane.add(sidebarPanel, BorderLayout.WEST);
 
-        // Main Content Panel
-        JPanel mainContentPanel = createMainContentPanel();
+        // Main Content Panel with CardLayout
+        cardLayout = new CardLayout();
+        mainContentPanel = new JPanel(cardLayout);
+
+        // Thêm các panel vào CardLayout
+        mainContentPanel.add(new view.UserView.panels.HomePanel(), DASHBOARD_PANEL);
+        mainContentPanel.add(new view.UserView.panels.SearchDomainPanel(), SEARCH_DOMAIN_PANEL);
+        mainContentPanel.add(new view.UserView.panels.MyDomainsPanel(), MY_DOMAINS_PANEL);
+        mainContentPanel.add(new view.UserView.panels.OrdersPanel(), ORDERS_PANEL);
+        mainContentPanel.add(new view.UserView.panels.ProfilePanel(), PROFILE_PANEL);
+        mainContentPanel.add(new view.UserView.panels.SupportPanel(), SUPPORT_PANEL);
+
         contentPane.add(mainContentPanel, BorderLayout.CENTER);
     }
 
@@ -113,29 +133,53 @@ public class UserDashboardView extends JFrame {
         return sidebarPanel;
     }
 
-    private JButton createMenuButton(String text) {
-        JButton button = new JButton(text);
-        button.setPreferredSize(new Dimension(200, 40));
-        button.setMaximumSize(new Dimension(200, 40));
-        button.setFont(new Font("Arial", Font.PLAIN, 14));
-        button.setHorizontalAlignment(SwingConstants.LEFT);
-        button.setBorderPainted(false);
-        button.setFocusPainted(false);
-        button.setBackground(new Color(240, 240, 240));
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        button.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
-
-        button.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                // Xử lý khi nhấp vào các menu item
-                // Implement sau
-            }
-        });
-
-        return button;
-    }
-
+        private JButton createMenuButton(String text) {
+            JButton button = new JButton(text);
+            button.setPreferredSize(new Dimension(200, 40));
+            button.setMaximumSize(new Dimension(200, 40));
+            button.setFont(new Font("Arial", Font.PLAIN, 14));
+            button.setHorizontalAlignment(SwingConstants.LEFT);
+            button.setBorderPainted(false);
+            button.setFocusPainted(false);
+            button.setBackground(new Color(240, 240, 240)); // Màu nền mặc định
+            button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            button.setBorder(BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        
+            // Thêm nút vào danh sách
+            menuButtons.add(button);
+        
+            button.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    // Đổi màu nút được chọn
+                    updateMenuButtonColors(button);
+        
+                    // Chuyển panel dựa trên text
+                    switch (text) {
+                        case "Trang chính":
+                            switchPanel(DASHBOARD_PANEL);
+                            break;
+                        case "Tìm kiếm tên miền":
+                            switchPanel(SEARCH_DOMAIN_PANEL);
+                            break;
+                        case "Tên miền của tôi":
+                            switchPanel(MY_DOMAINS_PANEL);
+                            break;
+                        case "Đơn hàng":
+                            switchPanel(ORDERS_PANEL);
+                            break;
+                        case "Thông tin cá nhân":
+                            switchPanel(PROFILE_PANEL);
+                            break;
+                        case "Hỗ trợ":
+                            switchPanel(SUPPORT_PANEL);
+                            break;
+                    }
+                }
+            });
+        
+            return button;
+        }
     private JPanel createMainContentPanel() {
         JPanel mainContentPanel = new JPanel();
         mainContentPanel.setBackground(Color.WHITE);
@@ -170,4 +214,19 @@ public class UserDashboardView extends JFrame {
         dispose();
         new view.Login().setVisible(true);
     }
+
+    private void switchPanel(String cardName) {
+        cardLayout.show(mainContentPanel, cardName);
+    }
+
+    private void updateMenuButtonColors(JButton selectedButton) {
+        for (JButton button : menuButtons) {
+            if (button == selectedButton) {
+                button.setBackground(new Color(200, 200, 255)); // Màu nền khi được chọn
+            } else {
+                button.setBackground(new Color(240, 240, 240)); // Màu nền mặc định
+            }
+        }
+    }
+
 }
