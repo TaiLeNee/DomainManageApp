@@ -69,7 +69,7 @@ public class UserDashboardView extends JFrame {
         mainContentPanel.add(new view.UserView.panels.SearchDomainPanel(), SEARCH_DOMAIN_PANEL);
         mainContentPanel.add(new view.UserView.panels.MyDomainsPanel(), MY_DOMAINS_PANEL);
         mainContentPanel.add(new view.UserView.panels.OrdersPanel(), ORDERS_PANEL);
-        mainContentPanel.add(new view.UserView.panels.ProfilePanel(), PROFILE_PANEL);
+        mainContentPanel.add(new view.UserView.panels.ProfilePanel(loggedInUser,this), PROFILE_PANEL);
         mainContentPanel.add(new view.UserView.panels.SupportPanel(), SUPPORT_PANEL);
 
         contentPane.add(mainContentPanel, BorderLayout.CENTER);

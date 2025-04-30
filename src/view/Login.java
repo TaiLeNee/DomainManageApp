@@ -333,8 +333,7 @@ public class Login extends JFrame {
 						setVisible(false);
 					} else if (userSession.isUser()) {
 						// Chuyển đến trang dashboard cho người dùng thường
-						view.UserView.UserDashboardView userView = new view.UserView.UserDashboardView(
-								currentUser.getFullName(), currentUser.getRole());
+						view.UserView.UserDashboardView userView = new view.UserView.UserDashboardView();
 						userView.setVisible(true);
 						setVisible(false);
 					} else {
