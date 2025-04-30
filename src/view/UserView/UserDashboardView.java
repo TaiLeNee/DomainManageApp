@@ -4,7 +4,12 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
 import model.User;
+import repository.DatabaseConnection;
+import repository.DomainExtensionRepository;
+import service.DomainExtensionService;
 import utils.UserSession;
+import view.AdminView.AdminDashboardView;
+import view.UserView.panels.SearchDomainPanel;
 
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -18,6 +23,8 @@ public class UserDashboardView extends JFrame {
     private CardLayout cardLayout;
     private JPanel mainContentPanel;
     private java.util.List<JButton> menuButtons = new java.util.ArrayList<>();
+    DomainExtensionRepository domainExtensionRepository = new DomainExtensionRepository();
+    DomainExtensionService domainExtensionService = new DomainExtensionService();
 
     //Cardsname các panel
     private static final String DASHBOARD_PANEL = "DASHBOARD_PANEL";
@@ -46,33 +53,42 @@ public class UserDashboardView extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setBounds(100, 100, 1200, 700);
         setLocationRelativeTo(null);
-
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+    
         contentPane = new JPanel();
         contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
         contentPane.setLayout(new BorderLayout(0, 0));
         setContentPane(contentPane);
-
+    
         // Header Panel
         JPanel headerPanel = createHeaderPanel();
         contentPane.add(headerPanel, BorderLayout.NORTH);
-
+    
         // Sidebar Panel
         JPanel sidebarPanel = createSidebarPanel();
         contentPane.add(sidebarPanel, BorderLayout.WEST);
-
+    
         // Main Content Panel with CardLayout
         cardLayout = new CardLayout();
         mainContentPanel = new JPanel(cardLayout);
-
+    
         // Thêm các panel vào CardLayout
-        mainContentPanel.add(new view.UserView.panels.HomePanel(), DASHBOARD_PANEL);
-        mainContentPanel.add(new view.UserView.panels.SearchDomainPanel(), SEARCH_DOMAIN_PANEL);
+        mainContentPanel.add(new view.UserView.panels.HomePanel(cardLayout, mainContentPanel), DASHBOARD_PANEL);
+        mainContentPanel.add(new SearchDomainPanel(domainExtensionService), SEARCH_DOMAIN_PANEL);
         mainContentPanel.add(new view.UserView.panels.MyDomainsPanel(), MY_DOMAINS_PANEL);
         mainContentPanel.add(new view.UserView.panels.OrdersPanel(), ORDERS_PANEL);
         mainContentPanel.add(new view.UserView.panels.ProfilePanel(), PROFILE_PANEL);
         mainContentPanel.add(new view.UserView.panels.SupportPanel(), SUPPORT_PANEL);
-
+    
         contentPane.add(mainContentPanel, BorderLayout.CENTER);
+    
+        // Hiển thị Trang chính khi mở ứng dụng
+        switchPanel(DASHBOARD_PANEL);
+    
+        // Đổi màu nút Trang chính
+        if (!menuButtons.isEmpty()) {
+            updateMenuButtonColors(menuButtons.get(0)); // Nút đầu tiên là Trang chính
+        }
     }
 
     private JPanel createHeaderPanel() {
@@ -191,6 +207,7 @@ public class UserDashboardView extends JFrame {
         welcomeLabel.setBorder(new EmptyBorder(30, 0, 30, 0));
 
         mainContentPanel.add(welcomeLabel, BorderLayout.NORTH);
+        
 
         // Nội dung chính
         JPanel centerPanel = new JPanel();
@@ -227,6 +244,22 @@ public class UserDashboardView extends JFrame {
                 button.setBackground(new Color(240, 240, 240)); // Màu nền mặc định
             }
         }
+    }
+
+    public static void main(String[] args) {
+        // Đảm bảo sử dụng giao diện look and feel của hệ thống
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Chạy giao diện trên EDT (Event Dispatch Thread)
+        SwingUtilities.invokeLater(() -> {
+            // Tạo AdminDashboardView với session hiện tại
+            UserDashboardView dashboard = new UserDashboardView();
+            dashboard.setVisible(true);
+        });
     }
 
 }

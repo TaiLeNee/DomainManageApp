@@ -1,17 +1,16 @@
 package service;
 
-import model.Domain;
-import repository.DatabaseConnection;
-import repository.DomainExtensionRepository;
-import repository.DomainRepository;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
+import model.Domain;
+import repository.DatabaseConnection;
+import repository.DomainExtensionRepository;
+import repository.DomainRepository;
 
 public class DomainExtensionService {
     // Danh sách các phần mở rộng tên miền phổ biến
@@ -134,6 +133,24 @@ public class DomainExtensionService {
             System.err.println("Error deleting extension: " + e.getMessage());
             e.printStackTrace();
             return false;
+        }
+    }
+
+    public List<String[]> getAllDomainExtensions() {
+        try {
+            return extensionRepository.getAllDomainExtensions();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
+    }
+
+    public List<String[]> searchDomainWithExtensions(String domainName) {
+        try {
+            return extensionRepository.searchDomainWithExtensions(domainName);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return List.of();
         }
     }
 }
