@@ -50,6 +50,39 @@ public class UserDashboardView extends JFrame {
     }
 
     private void initialize() {
+
+        setTitle("Hệ Thống Quản Lý Tên Miền - Trang Người Dùng");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setBounds(100, 100, 1200, 700);
+        setLocationRelativeTo(null);
+
+        contentPane = new JPanel();
+        contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
+        contentPane.setLayout(new BorderLayout(0, 0));
+        setContentPane(contentPane);
+
+        // Header Panel
+        JPanel headerPanel = createHeaderPanel();
+        contentPane.add(headerPanel, BorderLayout.NORTH);
+
+        // Sidebar Panel
+        JPanel sidebarPanel = createSidebarPanel();
+        contentPane.add(sidebarPanel, BorderLayout.WEST);
+
+        // Main Content Panel with CardLayout
+        cardLayout = new CardLayout();
+        mainContentPanel = new JPanel(cardLayout);
+
+        // Thêm các panel vào CardLayout
+        mainContentPanel.add(new view.UserView.panels.HomePanel(), DASHBOARD_PANEL);
+        mainContentPanel.add(new view.UserView.panels.SearchDomainPanel(), SEARCH_DOMAIN_PANEL);
+        mainContentPanel.add(new view.UserView.panels.MyDomainsPanel(), MY_DOMAINS_PANEL);
+        mainContentPanel.add(new view.UserView.panels.OrdersPanel(), ORDERS_PANEL);
+        mainContentPanel.add(new view.UserView.panels.ProfilePanel(loggedInUser,this), PROFILE_PANEL);
+        mainContentPanel.add(new view.UserView.panels.SupportPanel(), SUPPORT_PANEL);
+
+        contentPane.add(mainContentPanel, BorderLayout.CENTER);
+
     setTitle("Hệ Thống Quản Lý Tên Miền - Trang Người Dùng");
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
     setBounds(100, 100, 1200, 700);
@@ -92,6 +125,7 @@ public class UserDashboardView extends JFrame {
     // Đổi màu nút Trang chính
     if (!menuButtons.isEmpty()) {
         updateMenuButtonColors(menuButtons.get(0)); // Nút đầu tiên là Trang chính
+
     }
 }
 

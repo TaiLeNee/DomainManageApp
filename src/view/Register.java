@@ -478,7 +478,7 @@ public class Register extends JFrame {
 				String pass = getFieldValue(passwordField, "Mật khẩu");
 				String confirmPass = getFieldValue(confirmPasswordField, "Xác nhận mật khẩu");
 				String email = getFieldValue(emailField, "Email");
-				String role = "Customer";
+				String role = "user";
 
 				// Kiểm tra thông tin
 				if (new ValidationUtils().isNotEmpty(fullName)) {
