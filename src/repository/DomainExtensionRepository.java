@@ -139,4 +139,46 @@ public class DomainExtensionRepository {
 
         return Optional.empty();
     }
+
+    
+    public List<String[]> getAllDomainExtensions() throws SQLException {
+        List<String[]> domainExtensions = new ArrayList<>();
+        String sql = "SELECT extension, description, default_price FROM domain_extensions ORDER BY extension";
+    
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                String extension = rs.getString("extension");
+                String description = rs.getString("description");
+                String price = String.format("%.0f VND", rs.getDouble("default_price"));
+                domainExtensions.add(new String[]{extension, description, price});
+            }
+        }
+    
+        return domainExtensions;
+    }
+
+    public List<String[]> searchDomainWithExtensions(String domainName) throws SQLException {
+        List<String[]> results = new ArrayList<>();
+        String sql = "SELECT CONCAT(?, extension) AS domain, " +
+                     "       CASE WHEN EXISTS (SELECT 1 FROM domains WHERE name = CONCAT(?, extension)) THEN N'Không khả dụng' ELSE N'Khả dụng' END AS status, " +
+                     "       default_price AS price " +
+                     "FROM domain_extensions";
+    
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, domainName);
+            stmt.setString(2, domainName);
+    
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    String domain = rs.getString("domain");
+                    String status = rs.getString("status");
+                    String price = rs.getString("price");
+                    results.add(new String[]{domain, status, price});
+                }
+            }
+        }
+    
+        return results;
+    }
 }
