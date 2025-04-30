@@ -1,13 +1,5 @@
 package service;
 
-import model.Domain;
-import model.Order;
-import model.RentalPeriod;
-import repository.DatabaseConnection;
-import repository.DomainRepository;
-import repository.OrderRepository;
-import repository.RentalPeriodRepository;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
@@ -18,6 +10,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import model.Domain;
+import model.Order;
+import model.RentalPeriod;
+import repository.DatabaseConnection;
+import repository.DomainRepository;
+import repository.OrderRepository;
+import repository.RentalPeriodRepository;
 
 public class DomainService {
     private DomainRepository domainRepository;

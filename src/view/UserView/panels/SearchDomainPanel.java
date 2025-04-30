@@ -1,18 +1,25 @@
 package view.UserView.panels;
 
 import java.awt.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
 import javax.swing.*;
+import repository.DatabaseConnection;
 import service.DomainExtensionService;
 
 public class SearchDomainPanel extends JPanel {
     private JPanel resultPanel;
     private DomainExtensionService domainExtensionService;
+    private MyDomainsPanel myDomainsPanel; // Tham chiếu đến MyDomainsPanel
 
-    public SearchDomainPanel(DomainExtensionService domainExtensionService) {
+    public SearchDomainPanel(DomainExtensionService domainExtensionService, MyDomainsPanel myDomainsPanel) {
         this.domainExtensionService = domainExtensionService;
+        this.myDomainsPanel = myDomainsPanel; // Gán tham chiếu
+        
 
         setLayout(new BorderLayout());
 
@@ -117,12 +124,7 @@ public class SearchDomainPanel extends JPanel {
             addToCartButton.setForeground(Color.BLACK);
             addToCartButton.setEnabled(status.equals("Khả dụng"));
             addToCartButton.addActionListener(e -> {
-                JOptionPane.showMessageDialog(
-                    this,
-                    "Đã thêm " + domain + " vào giỏ hàng!",
-                    "Thông báo",
-                    JOptionPane.INFORMATION_MESSAGE
-                );
+                addDomainToCart(domain, Double.parseDouble(price));
             });
 
             JPanel infoPanel = new JPanel(new GridLayout(1, 3, 10, 0));
@@ -139,5 +141,39 @@ public class SearchDomainPanel extends JPanel {
         // Cập nhật giao diện
         resultPanel.revalidate();
         resultPanel.repaint();
+    }
+
+    /**
+     * Lưu tên miền vào giỏ hàng trong cơ sở dữ liệu.
+     * @param domainName Tên miền.
+     * @param price Giá của tên miền.
+     */
+    private void addDomainToCart(String domainName, double price) {
+        String query = "INSERT INTO cart (domain_name, price) VALUES (?, ?)";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setString(1, domainName);
+            statement.setDouble(2, price);
+            statement.executeUpdate();
+
+            JOptionPane.showMessageDialog(
+                this,
+                "Đã thêm " + domainName + " vào giỏ hàng!",
+                "Thông báo",
+                JOptionPane.INFORMATION_MESSAGE
+            );
+
+            // Gọi phương thức loadDomainsFromDatabase của MyDomainsPanel
+            myDomainsPanel.loadDomainsFromDatabase();
+
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(
+                this,
+                "Lỗi khi thêm vào cơ sở dữ liệu: " + e.getMessage(),
+                "Lỗi",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
     }
 }
