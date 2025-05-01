@@ -1,12 +1,11 @@
 package repository;
 
-import model.User;
-import model.DomainPurchase;
-
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import model.DomainPurchase;
+import model.User;
 
 public class UserRepository {
     private Connection connection;
@@ -289,5 +288,31 @@ public class UserRepository {
             }
         }
         return purchases;
+    }
+
+    // Phương thức đổi mật khẩu
+    public boolean changePassword(int userId, String oldPassword, String newPassword) throws SQLException {
+        String sql = "UPDATE users SET password = ? WHERE id = ? AND password = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, newPassword);
+            stmt.setInt(2, userId);
+            stmt.setString(3, oldPassword);
+    
+            int rowsUpdated = stmt.executeUpdate();
+            return rowsUpdated > 0; // Trả về true nếu đổi mật khẩu thành công
+        }
+    }
+
+    // Phương thức đổi thông tin của người dùng
+    public boolean updateUserInfo(int userId, String fullName, String email) throws SQLException {
+        String sql = "UPDATE users SET fullname = ?, email = ? WHERE id = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, fullName);
+            stmt.setString(2, email);
+            stmt.setInt(3, userId);
+    
+            int rowsUpdated = stmt.executeUpdate();
+            return rowsUpdated > 0; // Trả về true nếu cập nhật thành công
+        }
     }
 }

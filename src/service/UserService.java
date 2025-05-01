@@ -1,15 +1,14 @@
 package service;
 
-import repository.UserRepository;
-import repository.OrderRepository;
-import repository.DomainRepository;
-import model.*;
-import repository.DatabaseConnection;
-
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Optional;
+import model.*;
+import repository.DatabaseConnection;
+import repository.DomainRepository;
+import repository.OrderRepository;
+import repository.UserRepository;
 
 public class UserService {
     private UserRepository userRepository;
@@ -84,6 +83,26 @@ public class UserService {
             }
         }
         return false;
+    }
+
+    // Đổi mật khẩu
+    public boolean changePassword(int userId, String oldPassword, String newPassword) {
+        try {
+            return userRepository.changePassword(userId, oldPassword, newPassword);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false; // Trả về false nếu có lỗi
+        }
+    }
+
+    // Chỉnh sửa thông tin người dùng
+    public boolean updateUserInfo(int userId, String fullName, String email) {
+        try {
+            return userRepository.updateUserInfo(userId, fullName, email);
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false; // Trả về false nếu có lỗi
+        }
     }
 
     public Optional<User> login(String usernameOrEmail, String password) throws SQLException {
