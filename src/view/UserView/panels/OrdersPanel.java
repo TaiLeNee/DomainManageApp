@@ -33,8 +33,6 @@ public class OrdersPanel extends JPanel {
                 paymentDate.toString(),
                 status
         });
-
-        tableModel.addRow(new Object[]{domainName, totalPrice, paymentDate, status});
     }
 
     public void clearTable() {
