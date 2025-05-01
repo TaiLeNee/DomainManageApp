@@ -84,11 +84,14 @@ CREATE TABLE transactions (
 );
 GO
 
-
+-- Bảng cart	
 CREATE TABLE cart (
     id INT IDENTITY(1,1) PRIMARY KEY,
-    domain_name VARCHAR(255) NOT NULL,
-    price DECIMAL(10, 2) NOT NULL
+    user_id INT NOT NULL,
+    domain_id INT NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (domain_id) REFERENCES domains(id)
 );
 
 
