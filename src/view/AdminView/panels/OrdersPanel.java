@@ -1,9 +1,5 @@
 package view.AdminView.panels;
 
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -11,7 +7,10 @@ import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.stream.Collectors;
-
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 import model.Domain;
 import model.Order;
 import model.User;
@@ -255,10 +254,41 @@ public class OrdersPanel extends JPanel {
     }
 
     private void exportOrderReport() {
-        // TODO: Xuất báo cáo đơn hàng
-        JOptionPane.showMessageDialog(parentFrame,
-                "Chức năng xuất báo cáo đơn hàng sẽ được triển khai sau.",
-                "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Chọn vị trí lưu file");
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+    
+        // Đặt tên file mặc định
+        fileChooser.setSelectedFile(new java.io.File("orders_report.csv"));
+    
+        int userSelection = fileChooser.showSaveDialog(parentFrame);
+    
+        if (userSelection == JFileChooser.APPROVE_OPTION) {
+            java.io.File fileToSave = fileChooser.getSelectedFile();
+    
+            try (java.io.OutputStreamWriter writer = new java.io.OutputStreamWriter(
+                    new java.io.FileOutputStream(fileToSave), "UTF-8")) {
+                // Ghi tiêu đề cột
+                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                    writer.write(tableModel.getColumnName(i) + (i == tableModel.getColumnCount() - 1 ? "\n" : ","));
+                }
+    
+                // Ghi dữ liệu từng hàng
+                for (int i = 0; i < tableModel.getRowCount(); i++) {
+                    for (int j = 0; j < tableModel.getColumnCount(); j++) {
+                        writer.write(tableModel.getValueAt(i, j) + (j == tableModel.getColumnCount() - 1 ? "\n" : ","));
+                    }
+                }
+    
+                JOptionPane.showMessageDialog(parentFrame,
+                        "Xuất dữ liệu thành công!",
+                        "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(parentFrame,
+                        "Lỗi khi xuất dữ liệu: " + e.getMessage(),
+                        "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 
     private void viewOrderDetail(int orderId) {

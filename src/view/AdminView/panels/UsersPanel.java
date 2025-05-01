@@ -1,16 +1,15 @@
 package view.AdminView.panels;
 
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.text.SimpleDateFormat;
 import java.util.List;
 import java.util.stream.Collectors;
-
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 import model.User;
 import repository.UserRepository;
 
@@ -68,8 +67,22 @@ public class UsersPanel extends JPanel {
 
         addButton.addActionListener(e -> showAddUserDialog());
 
+        // Nút xóa người dùng
+        JButton deleteButton = new JButton("Xóa người dùng");
+        deleteButton.setBackground(new Color(231, 76, 60));
+        deleteButton.setForeground(Color.BLACK);
+        deleteButton.setFocusPainted(false);
+        deleteButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        deleteButton.setPreferredSize(new Dimension(150, 35));
+        deleteButton.addActionListener(e -> deleteSelectedUser());
+
+        //JPanel chứa các nút
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.add(addButton);
+        buttonPanel.add(deleteButton);
+
         toolPanel.add(searchPanel, BorderLayout.WEST);
-        toolPanel.add(addButton, BorderLayout.EAST);
+        toolPanel.add(buttonPanel, BorderLayout.EAST);
 
         // Bảng người dùng
         String[] columns = { "ID", "Họ tên", "Email", "Vai trò", "Ngày tạo", "Trạng thái", "Thao tác" };
@@ -279,28 +292,99 @@ public class UsersPanel extends JPanel {
     }
 
     private void showAddUserDialog() {
-        // TODO: Hiển thị form thêm người dùng mới
-        JOptionPane.showMessageDialog(parentFrame,
-                "Chức năng thêm người dùng mới sẽ được triển khai sau.",
-                "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+        JTextField fullNameField = new JTextField();
+        JTextField emailField = new JTextField();
+        JTextField usernameField = new JTextField();
+        JPasswordField passwordField = new JPasswordField();
+        JComboBox<String> roleComboBox = new JComboBox<>(new String[] { "Admin", "Customer" });
+    
+        JPanel panel = new JPanel(new GridLayout(5, 2, 10, 10));
+        panel.add(new JLabel("Họ tên:"));
+        panel.add(fullNameField);
+        panel.add(new JLabel("Email:"));
+        panel.add(emailField);
+        panel.add(new JLabel("Tên đăng nhập:"));
+        panel.add(usernameField);
+        panel.add(new JLabel("Mật khẩu:"));
+        panel.add(passwordField);
+        panel.add(new JLabel("Vai trò:"));
+        panel.add(roleComboBox);
+    
+        int result = JOptionPane.showConfirmDialog(parentFrame, panel, "Thêm người dùng mới", JOptionPane.OK_CANCEL_OPTION);
+        if (result == JOptionPane.OK_OPTION) {
+            try {
+                String fullName = fullNameField.getText().trim();
+                String email = emailField.getText().trim();
+                String username = usernameField.getText().trim();
+                String password = new String(passwordField.getPassword()).trim();
+                String role = (String) roleComboBox.getSelectedItem();
+    
+                if (fullName.isEmpty() || email.isEmpty() || username.isEmpty() || password.isEmpty()) {
+                    JOptionPane.showMessageDialog(parentFrame, "Vui lòng điền đầy đủ thông tin.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+    
+                User newUser = new User();
+                newUser.setFullName(fullName);
+                newUser.setEmail(email);
+                newUser.setUsername(username);
+                newUser.setPassword(password);
+                newUser.setRole(role);
+    
+                userRepository.save(newUser);
+                JOptionPane.showMessageDialog(parentFrame, "Thêm người dùng thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                loadUserData(); // Refresh dữ liệu bảng
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(parentFrame, "Lỗi khi thêm người dùng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 
     private void editUser(int userId) {
         try {
             User user = userRepository.getUserById(userId);
             if (user != null) {
-                // Tạo form chỉnh sửa người dùng
-                JOptionPane.showMessageDialog(parentFrame,
-                        "Chỉnh sửa thông tin người dùng: " + user.getEmail(),
-                        "Chỉnh sửa người dùng",
-                        JOptionPane.INFORMATION_MESSAGE);
-
-                // TODO: Hiển thị form chỉnh sửa người dùng
+                JTextField fullNameField = new JTextField(user.getFullName());
+                JTextField emailField = new JTextField(user.getEmail());
+                JComboBox<String> roleComboBox = new JComboBox<>(new String[] { "Admin", "Customer" });
+                roleComboBox.setSelectedItem(user.getRole());
+    
+                JPanel panel = new JPanel(new GridLayout(3, 2, 10, 10));
+                panel.add(new JLabel("Họ tên:"));
+                panel.add(fullNameField);
+                panel.add(new JLabel("Email:"));
+                panel.add(emailField);
+                panel.add(new JLabel("Vai trò:"));
+                panel.add(roleComboBox);
+    
+                int result = JOptionPane.showConfirmDialog(parentFrame, panel, "Chỉnh sửa người dùng", JOptionPane.OK_CANCEL_OPTION);
+                if (result == JOptionPane.OK_OPTION) {
+                    String fullName = fullNameField.getText().trim();
+                    String email = emailField.getText().trim();
+                    String role = (String) roleComboBox.getSelectedItem();
+    
+                    if (fullName.isEmpty() || email.isEmpty()) {
+                        JOptionPane.showMessageDialog(parentFrame, "Vui lòng điền đầy đủ thông tin.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+    
+                    user.setFullName(fullName);
+                    user.setEmail(email);
+                    user.setRole(role);
+    
+                    boolean updateResult = userRepository.updateUser(user);
+                    if (updateResult) {
+                        JOptionPane.showMessageDialog(parentFrame, "Cập nhật người dùng thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                        loadUserData(); // Refresh dữ liệu bảng
+                    } else {
+                        JOptionPane.showMessageDialog(parentFrame, "Không thể cập nhật người dùng. Vui lòng thử lại.", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            } else {
+                JOptionPane.showMessageDialog(parentFrame, "Không tìm thấy thông tin người dùng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(parentFrame,
-                    "Không thể tải thông tin người dùng: " + e.getMessage(),
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(parentFrame, "Lỗi khi tải thông tin người dùng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -308,28 +392,45 @@ public class UsersPanel extends JPanel {
         try {
             User user = userRepository.getUserById(userId);
             if (user != null) {
-                // Đổi trạng thái người dùng
                 user.setActive(!user.isActive());
                 boolean result = userRepository.updateUser(user);
-
+    
                 if (result) {
                     String status = user.isActive() ? "kích hoạt" : "khóa";
-                    JOptionPane.showMessageDialog(parentFrame,
-                            "Đã " + status + " người dùng thành công!",
-                            "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-
-                    // Refresh data
-                    loadUserData();
+                    JOptionPane.showMessageDialog(parentFrame, "Đã " + status + " người dùng thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                    loadUserData(); // Refresh dữ liệu bảng
                 } else {
-                    JOptionPane.showMessageDialog(parentFrame,
-                            "Không thể thay đổi trạng thái người dùng!",
-                            "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(parentFrame, "Không thể thay đổi trạng thái người dùng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
+            } else {
+                JOptionPane.showMessageDialog(parentFrame, "Không tìm thấy thông tin người dùng!", "Lỗi", JOptionPane.ERROR_MESSAGE);
             }
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(parentFrame,
-                    "Lỗi khi thay đổi trạng thái người dùng: " + e.getMessage(),
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(parentFrame, "Lỗi khi thay đổi trạng thái người dùng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void deleteSelectedUser() {
+        int selectedRow = usersTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(parentFrame, "Vui lòng chọn người dùng để xóa.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+    
+        int userId = Integer.parseInt(usersTable.getValueAt(selectedRow, 0).toString());
+        int confirm = JOptionPane.showConfirmDialog(parentFrame,
+                "Bạn có chắc chắn muốn xóa người dùng này?",
+                "Xác nhận xóa",
+                JOptionPane.YES_NO_OPTION);
+    
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                userRepository.deleteById(userId);
+                JOptionPane.showMessageDialog(parentFrame, "Xóa người dùng thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+                loadUserData(); // Refresh dữ liệu bảng
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(parentFrame, "Lỗi khi xóa người dùng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 }
