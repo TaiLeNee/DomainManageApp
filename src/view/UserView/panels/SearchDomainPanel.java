@@ -8,8 +8,10 @@ import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
 import javax.swing.*;
+import model.User;
 import repository.DatabaseConnection;
 import service.DomainExtensionService;
+import utils.UserSession;
 
 public class SearchDomainPanel extends JPanel {
     private JPanel resultPanel;
@@ -148,24 +150,62 @@ public class SearchDomainPanel extends JPanel {
      * @param domainName Tên miền.
      * @param price Giá của tên miền.
      */
+    /**
+ * Lưu tên miền vào giỏ hàng trong cơ sở dữ liệu.
+ * @param domainName Tên miền.
+ * @param price Giá của tên miền.
+ */
     private void addDomainToCart(String domainName, double price) {
-        String query = "INSERT INTO cart (domain_name, price) VALUES (?, ?)";
+        String insertDomainQuery = "IF NOT EXISTS (SELECT 1 FROM domains WHERE name = ? AND extension = ?) " +
+                                "INSERT INTO domains (name, extension, price, status) VALUES (?, ?, ?, 'Available')";
+        String insertCartQuery = "INSERT INTO cart (user_id, domain_id, price) VALUES (?, (SELECT id FROM domains WHERE name = ? AND extension = ?), ?)";
+
         try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
+            PreparedStatement insertDomainStmt = connection.prepareStatement(insertDomainQuery);
+            PreparedStatement insertCartStmt = connection.prepareStatement(insertCartQuery)) {
 
-            statement.setString(1, domainName);
-            statement.setDouble(2, price);
-            statement.executeUpdate();
+            // Lấy ID người dùng hiện tại
+            int userId = getLoggedInUserId();
+            if (userId <= 0) {
+                throw new SQLException("Không tìm thấy thông tin người dùng.");
+            }
 
-            JOptionPane.showMessageDialog(
-                this,
-                "Đã thêm " + domainName + " vào giỏ hàng!",
-                "Thông báo",
-                JOptionPane.INFORMATION_MESSAGE
-            );
+            // Tách domainName thành name và extension
+            String[] domainParts = domainName.split("\\.", 2); // Tách tên miền thành 2 phần: name và extension
+            if (domainParts.length != 2) {
+                throw new SQLException("Tên miền không hợp lệ: " + domainName);
+            }
+            String name = domainParts[0];
+            String extension = "." + domainParts[1];
 
-            // Gọi phương thức loadDomainsFromDatabase của MyDomainsPanel
-            myDomainsPanel.loadDomainsFromDatabase();
+            // Thêm tên miền vào bảng domains nếu chưa tồn tại
+            insertDomainStmt.setString(1, name);
+            insertDomainStmt.setString(2, extension);
+            insertDomainStmt.setString(3, name);
+            insertDomainStmt.setString(4, extension);
+            insertDomainStmt.setDouble(5, price); // Giá lấy từ tham số
+            insertDomainStmt.executeUpdate();
+
+            // Thêm tên miền vào bảng cart
+            insertCartStmt.setInt(1, userId); // ID người dùng
+            insertCartStmt.setString(2, name); // Tên miền (name)
+            insertCartStmt.setString(3, extension); // Phần mở rộng (extension)
+            insertCartStmt.setDouble(4, price); // Giá của tên miền
+            int rowsAffected = insertCartStmt.executeUpdate();
+
+            if (rowsAffected > 0) {
+                JOptionPane.showMessageDialog(
+                    this,
+                    "Đã thêm " + domainName + " vào giỏ hàng!",
+                    "Thông báo",
+                    JOptionPane.INFORMATION_MESSAGE
+                );
+
+                // Gọi phương thức loadDomainsFromDatabase của MyDomainsPanel
+                myDomainsPanel.loadDomainsFromDatabase();
+            } else {
+                throw new SQLException("Không thể thêm tên miền vào giỏ hàng.");
+            }
 
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(
@@ -175,5 +215,13 @@ public class SearchDomainPanel extends JPanel {
                 JOptionPane.ERROR_MESSAGE
             );
         }
+    }
+
+    private int getLoggedInUserId() {
+        User currentUser = UserSession.getInstance().getCurrentUser();
+        if (currentUser == null) {
+            throw new IllegalStateException("Người dùng chưa đăng nhập.");
+        }
+        return currentUser.getId();
     }
 }

@@ -78,4 +78,20 @@ public class ValidationUtils {
     public static boolean isNotNull(Object obj) {
         return obj != null;
     }
+
+    ///Kiểm tra thẻ ở mục thanh toán
+    // Kiểm tra số thẻ (chỉ chứa 16 chữ số)
+    public static boolean isValidCardNumber(String cardNumber) {
+        return cardNumber.matches("\\d{16}");
+    }
+
+    // Kiểm tra ngày hết hạn (định dạng MM/YY)
+    public static boolean isValidExpiryDate(String expiryDate) {
+        return expiryDate.matches("(0[1-9]|1[0-2])/\\d{2}");
+    }
+
+    // Kiểm tra mã CVV (chỉ chứa 3 hoặc 4 chữ số)
+    public static boolean isValidCVV(String cvv) {
+        return cvv.matches("\\d{3,4}");
+    }
 }

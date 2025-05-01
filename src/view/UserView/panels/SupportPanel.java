@@ -1,11 +1,9 @@
 package view.UserView.panels;
 
+import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-
 import utils.ValidationUtils;
-
-import java.awt.*;
 
 public class SupportPanel extends JPanel {
     private JTextField fullNameField;
@@ -16,9 +14,9 @@ public class SupportPanel extends JPanel {
     private static final Color LINE_COLOR = new Color(0, 0, 0, 80);
 
     @SuppressWarnings("static-access")
-	public SupportPanel() {
+    public SupportPanel() {
         setLayout(new BorderLayout());
-        setBackground(new Color(245, 238, 210));//màu vàng nhạt
+        setBackground(new Color(245, 238, 210)); // màu vàng nhạt
 
         // Tiêu đề
         JLabel label = new JLabel("Hỗ trợ trực tuyến", SwingConstants.CENTER);
@@ -43,19 +41,23 @@ public class SupportPanel extends JPanel {
 
         gbc.gridx = 1;
         fullNameField = createTextField();
+        gbc.gridwidth = 3; // Gộp 3 cột để căn chỉnh đẹp hơn
         formPanel.add(fullNameField, gbc);
 
-        //  Email
-        gbc.gridx = 2;
-        formPanel.add(createLabel("Email"), gbc);
-
-        gbc.gridx = 3;
-        emailField = createTextField();
-        formPanel.add(emailField, gbc);
-
-        // Tiêu đề 
+        // Email
         gbc.gridx = 0;
         gbc.gridy = 1;
+        gbc.gridwidth = 1; // Reset lại gridwidth
+        formPanel.add(createLabel("Email"), gbc);
+
+        gbc.gridx = 1;
+        emailField = createTextField();
+        gbc.gridwidth = 3; // Gộp 3 cột để căn chỉnh đẹp hơn
+        formPanel.add(emailField, gbc);
+
+        // Tiêu đề
+        gbc.gridx = 0;
+        gbc.gridy = 2;
         gbc.gridwidth = 1;
         formPanel.add(createLabel("Tiêu đề"), gbc);
 
@@ -64,9 +66,9 @@ public class SupportPanel extends JPanel {
         titleField = createTextField();
         formPanel.add(titleField, gbc);
 
-        //  Nội dung 
+        // Nội dung
         gbc.gridx = 0;
-        gbc.gridy = 2;
+        gbc.gridy = 3;
         gbc.gridwidth = 1;
         formPanel.add(createLabel("Nội dung"), gbc);
 
@@ -84,10 +86,9 @@ public class SupportPanel extends JPanel {
         JButton sendButton = new JButton("Gửi");
         sendButton.setFocusPainted(false);
         sendButton.setBackground(new Color(220, 53, 69)); // đỏ kiểu "danger" (#dc3545)
-        // Tắt viền mặc định
         sendButton.setFocusPainted(false);
-        sendButton.setBorderPainted(false); 
-        sendButton.setContentAreaFilled(true); 
+        sendButton.setBorderPainted(false);
+        sendButton.setContentAreaFilled(true);
         sendButton.setOpaque(true);
         sendButton.setForeground(Color.WHITE); // chữ trắng
         sendButton.setFont(new Font("Arial", Font.BOLD, 14));
@@ -99,31 +100,31 @@ public class SupportPanel extends JPanel {
         buttonPanel.setOpaque(false);
         buttonPanel.setBorder(new EmptyBorder(10, 0, 20, 0));
         buttonPanel.add(sendButton);
-        
+
         add(buttonPanel, BorderLayout.SOUTH);
-        
+
         sendButton.addActionListener(e -> {
             String name = fullNameField.getText().trim();
             String email = emailField.getText().trim();
             String title = titleField.getText().trim();
             String content = contentArea.getText().trim();
 
-            if (name.isEmpty() || email.isEmpty() || content.isEmpty() ) {
+            if (name.isEmpty() || email.isEmpty() || content.isEmpty()) {
                 JOptionPane.showMessageDialog(
-                    this,
-                    "Vui lòng nhập đầy đủ thông tin!",
-                    "Thiếu thông tin",
-                    JOptionPane.WARNING_MESSAGE
+                        this,
+                        "Vui lòng nhập đầy đủ thông tin!",
+                        "Thiếu thông tin",
+                        JOptionPane.WARNING_MESSAGE
                 );
-            } else if( new ValidationUtils().isValidEmail(email)){
+            } else if (new ValidationUtils().isValidEmail(email)) {
                 // Xử lý gửi dữ liệu ở đây (nếu có)
 
                 // Thông báo thành công
                 JOptionPane.showMessageDialog(
-                    this,
-                    "Gửi yêu cầu hỗ trợ thành công!",
-                    "Thành công",
-                    JOptionPane.INFORMATION_MESSAGE
+                        this,
+                        "Gửi yêu cầu hỗ trợ thành công!",
+                        "Thành công",
+                        JOptionPane.INFORMATION_MESSAGE
                 );
 
                 // (Tuỳ chọn) Xoá nội dung sau khi gửi
@@ -131,26 +132,27 @@ public class SupportPanel extends JPanel {
                 emailField.setText("");
                 titleField.setText("");
                 contentArea.setText("");
-            }else {
-            		JOptionPane.showMessageDialog(
-                         this,
-                         "email sai định dạng!",
-                         "Thông báo",
-                         JOptionPane.WARNING_MESSAGE
-                   );
+            } else {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Email sai định dạng!",
+                        "Thông báo",
+                        JOptionPane.WARNING_MESSAGE
+                );
             }
         });
 
-
         add(formPanel, BorderLayout.CENTER);
     }
-    //Tạo JLabel có kiểu dáng thống nhất
+
+    // Tạo JLabel có kiểu dáng thống nhất
     private JLabel createLabel(String text) {
         JLabel label = new JLabel(text);
         label.setFont(new Font("Arial", Font.PLAIN, 14));
         return label;
     }
-    //Tạo JTextField có kiểu dáng thống nhất
+
+    // Tạo JTextField có kiểu dáng thống nhất
     private JTextField createTextField() {
         JTextField tf = new JTextField();
         tf.setFont(new Font("Arial", Font.PLAIN, 14));
