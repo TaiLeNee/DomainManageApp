@@ -187,13 +187,13 @@ public class UserDashboardView extends JFrame {
                 case "Tìm kiếm tên miền":
                     switchPanel(SEARCH_DOMAIN_PANEL);
                     break;
-                case "Tên miền của tôi":
-                    MyDomainsPanel myDomainsPanel = (MyDomainsPanel) mainContentPanel.getComponent(2); // Lấy MyDomainsPanel
+                    case "Tên miền của tôi":
+                    MyDomainsPanel myDomainsPanel = (MyDomainsPanel) mainContentPanel.getComponent(2);
                     myDomainsPanel.loadDomainsFromDatabase(); // Tải dữ liệu
                     switchPanel(MY_DOMAINS_PANEL);
                     break;
                 case "Đơn hàng":
-                    OrdersPanel ordersPanel = (OrdersPanel) mainContentPanel.getComponent(3); // Lấy OrdersPanel
+                    OrdersPanel ordersPanel = (OrdersPanel) mainContentPanel.getComponent(3);
                     updateOrdersPanel(ordersPanel); // Tải dữ liệu
                     switchPanel(ORDERS_PANEL);
                     break;

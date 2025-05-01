@@ -551,6 +551,20 @@ public class MyDomainsPanel extends JPanel {
         }
     }
 
+    private void deleteDomainFromDatabase(String domainName) {
+        String query = "DELETE FROM cart WHERE user_id = ? AND domain_id = (SELECT id FROM domains WHERE CONCAT(name, extension) = ?)";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(query)) {
+
+            statement.setInt(1, getLoggedInUserId());
+            statement.setString(2, domainName);
+            statement.executeUpdate();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Lỗi khi xóa dữ liệu: " + e.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
     private void updateOrdersPanel() {
         try (Connection connection = DatabaseConnection.getConnection()) {
             // Sử dụng JOIN để lấy thông tin tên miền từ bảng domains
@@ -573,7 +587,7 @@ public class MyDomainsPanel extends JPanel {
                 }
     
                 if (ordersPanel != null) {
-                    ordersPanel.clearTable(); // Xóa dữ liệu cũ
+                    ordersPanel.clearTable(); // Xóa dữ liệu cũ trước khi thêm dữ liệu mới
                     while (rs.next()) {
                         String domainName = rs.getString("domain_name");
                         double totalPrice = rs.getDouble("total_price");
@@ -588,20 +602,6 @@ public class MyDomainsPanel extends JPanel {
         } catch (SQLException e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Lỗi khi tải thông tin đơn hàng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void deleteDomainFromDatabase(String domainName) {
-        String query = "DELETE FROM cart WHERE user_id = ? AND domain_id = (SELECT id FROM domains WHERE CONCAT(name, extension) = ?)";
-        try (Connection connection = DatabaseConnection.getConnection();
-             PreparedStatement statement = connection.prepareStatement(query)) {
-
-            statement.setInt(1, getLoggedInUserId());
-            statement.setString(2, domainName);
-            statement.executeUpdate();
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Lỗi khi xóa dữ liệu: " + e.getMessage(),
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
