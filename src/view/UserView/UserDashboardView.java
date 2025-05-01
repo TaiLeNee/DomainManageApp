@@ -107,32 +107,64 @@ public class UserDashboardView extends JFrame {
         headerPanel.setBackground(PRIMARY_COLOR);
         headerPanel.setPreferredSize(new Dimension(1200, 60));
         headerPanel.setLayout(new BorderLayout());
-
+    
         JLabel titleLabel = new JLabel("Hệ Thống Quản Lý Tên Miền");
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 20));
         titleLabel.setBorder(new EmptyBorder(0, 20, 0, 0));
         headerPanel.add(titleLabel, BorderLayout.WEST);
-
-        JPanel userInfoPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    
+        JPanel userInfoPanel = new JPanel();
+        userInfoPanel.setLayout(new BoxLayout(userInfoPanel, BoxLayout.Y_AXIS));
         userInfoPanel.setOpaque(false);
-
+    
+        // Top panel for username and logout button
+        JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        topPanel.setOpaque(false);
+    
         String username = loggedInUser != null ? loggedInUser.getUsername() : "Người dùng";
         JLabel userLabel = new JLabel(username);
         userLabel.setForeground(Color.WHITE);
         userLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-
+    
+        // Create logout button with icon
         JButton logoutButton = new JButton("Đăng xuất");
+        try {
+            ImageIcon logoutIcon = new ImageIcon("src/img/logout.png");
+            // Scale the icon if needed
+            Image scaledImage = logoutIcon.getImage().getScaledInstance(16, 16, Image.SCALE_SMOOTH);
+            logoutButton.setIcon(new ImageIcon(scaledImage));
+        } catch (Exception e) {
+            System.err.println("Cannot load logout icon: " + e.getMessage());
+        }
         logoutButton.setFocusPainted(false);
         logoutButton.addActionListener(e -> logout());
-
-        userInfoPanel.add(userLabel);
-        userInfoPanel.add(Box.createRigidArea(new Dimension(10, 0)));
-        userInfoPanel.add(logoutButton);
+    
+        topPanel.add(userLabel);
+        topPanel.add(Box.createRigidArea(new Dimension(10, 0)));
+        topPanel.add(logoutButton);
+    
+        // Bottom panel for time
+        JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        bottomPanel.setOpaque(false);
+        JLabel timeLabel = new JLabel();
+        timeLabel.setForeground(Color.WHITE);
+        timeLabel.setFont(new Font("Arial", Font.BOLD, 13));
+        bottomPanel.add(timeLabel);
+    
+        // Timer to update time every second
+        Timer timer = new Timer(1000, e -> {
+            java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm:ss dd/MM/yyyy");
+            timeLabel.setText(sdf.format(new java.util.Date()));
+        });
+        timer.start();
+    
+        userInfoPanel.add(topPanel);
+        userInfoPanel.add(bottomPanel);
         userInfoPanel.setBorder(new EmptyBorder(0, 0, 0, 20));
-
+    
         headerPanel.add(userInfoPanel, BorderLayout.EAST);
-
+    
         return headerPanel;
     }
 
