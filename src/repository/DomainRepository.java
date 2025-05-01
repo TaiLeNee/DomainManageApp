@@ -48,7 +48,27 @@ public class DomainRepository {
 
     public boolean deleteDomain(int id) {
         try {
-            deleteById(id);
+            // Xóa các bản ghi liên quan trong bảng orders
+            String deleteOrdersSql = "DELETE FROM orders WHERE domain_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteOrdersSql)) {
+                stmt.setInt(1, id);
+                stmt.executeUpdate();
+            }
+    
+            // Xóa các bản ghi liên quan trong bảng transactions
+            String deleteTransactionsSql = "DELETE FROM transactions WHERE domain_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteTransactionsSql)) {
+                stmt.setInt(1, id);
+                stmt.executeUpdate();
+            }
+    
+            // Xóa domain
+            String deleteDomainSql = "DELETE FROM domains WHERE id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(deleteDomainSql)) {
+                stmt.setInt(1, id);
+                stmt.executeUpdate();
+            }
+    
             return true;
         } catch (SQLException e) {
             System.err.println("Error deleting domain: " + e.getMessage());
@@ -56,7 +76,6 @@ public class DomainRepository {
             return false;
         }
     }
-
     public void save(Domain domain) throws SQLException, IllegalArgumentException {
         validateDomain(domain);
 

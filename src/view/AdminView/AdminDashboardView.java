@@ -1,35 +1,25 @@
 package view.AdminView;
 
+import java.awt.*;
+import java.awt.event.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.plaf.ColorUIResource;
-import java.awt.*;
-import java.awt.event.*;
-import java.awt.geom.RoundRectangle2D;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-
-// Import các lớp model
-import model.Domain;
 import model.User;
-
-// Import các lớp repository
 import repository.DomainRepository;
 import repository.OrderRepository;
-import repository.UserRepository;
-import repository.TransactionRepository;
 import repository.RentalPeriodRepository;
-
-// Import các lớp service
+import repository.TransactionRepository;
+import repository.UserRepository;
+import service.DomainExtensionService;
 import service.DomainService;
 import service.UserService;
-import service.DomainExtensionService;
 import utils.UserSession;
-import view.Login;
-
-// Import các panel
 import view.AdminView.panels.*;
+import view.Login;
 
 public class AdminDashboardView extends JFrame {
     // Panels chính

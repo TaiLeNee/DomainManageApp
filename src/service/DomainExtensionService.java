@@ -141,7 +141,7 @@ public class DomainExtensionService {
             return extensionRepository.getAllDomainExtensions();
         } catch (SQLException e) {
             e.printStackTrace();
-            return new ArrayList<>();
+            return new ArrayList<>(); // Trả về danh sách rỗng nếu có lỗi
         }
     }
 
