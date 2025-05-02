@@ -39,14 +39,15 @@ public class UserDashboardView extends JFrame {
      */
     public UserDashboardView() {
         this.loggedInUser = UserSession.getInstance().getCurrentUser();
-    
+
         if (loggedInUser == null) {
-            JOptionPane.showMessageDialog(this, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", "Thông báo", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", "Thông báo",
+                    JOptionPane.WARNING_MESSAGE);
             dispose();
             new view.Login().setVisible(true);
             return;
         }
-    
+
         initialize();
     }
 
@@ -107,26 +108,26 @@ public class UserDashboardView extends JFrame {
         headerPanel.setBackground(PRIMARY_COLOR);
         headerPanel.setPreferredSize(new Dimension(1200, 60));
         headerPanel.setLayout(new BorderLayout());
-    
+
         JLabel titleLabel = new JLabel("Hệ Thống Quản Lý Tên Miền");
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setFont(new Font("Arial", Font.BOLD, 20));
         titleLabel.setBorder(new EmptyBorder(0, 20, 0, 0));
         headerPanel.add(titleLabel, BorderLayout.WEST);
-    
+
         JPanel userInfoPanel = new JPanel();
         userInfoPanel.setLayout(new BoxLayout(userInfoPanel, BoxLayout.Y_AXIS));
         userInfoPanel.setOpaque(false);
-    
+
         // Top panel for username and logout button
         JPanel topPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         topPanel.setOpaque(false);
-    
+
         String username = loggedInUser != null ? loggedInUser.getUsername() : "Người dùng";
         JLabel userLabel = new JLabel(username);
         userLabel.setForeground(Color.WHITE);
         userLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-    
+
         // Create logout button with icon
         JButton logoutButton = new JButton("Đăng xuất");
         try {
@@ -139,11 +140,11 @@ public class UserDashboardView extends JFrame {
         }
         logoutButton.setFocusPainted(false);
         logoutButton.addActionListener(e -> logout());
-    
+
         topPanel.add(userLabel);
         topPanel.add(Box.createRigidArea(new Dimension(10, 0)));
         topPanel.add(logoutButton);
-    
+
         // Bottom panel for time
         JPanel bottomPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         bottomPanel.setOpaque(false);
@@ -151,20 +152,20 @@ public class UserDashboardView extends JFrame {
         timeLabel.setForeground(Color.WHITE);
         timeLabel.setFont(new Font("Arial", Font.BOLD, 13));
         bottomPanel.add(timeLabel);
-    
+
         // Timer to update time every second
         Timer timer = new Timer(1000, e -> {
             java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("HH:mm:ss dd/MM/yyyy");
             timeLabel.setText(sdf.format(new java.util.Date()));
         });
         timer.start();
-    
+
         userInfoPanel.add(topPanel);
         userInfoPanel.add(bottomPanel);
         userInfoPanel.setBorder(new EmptyBorder(0, 0, 0, 20));
-    
+
         headerPanel.add(userInfoPanel, BorderLayout.EAST);
-    
+
         return headerPanel;
     }
 
@@ -178,7 +179,8 @@ public class UserDashboardView extends JFrame {
         sidebarPanel.setLayout(new BoxLayout(sidebarPanel, BoxLayout.Y_AXIS));
 
         // Menu items
-        String[] menuItems = { "Trang chính", "Tìm kiếm tên miền", "Tên miền của tôi", "Đơn hàng", "Thông tin cá nhân",
+        String[] menuItems = { "Trang chính", "Tìm kiếm tên miền", "Giỏ hàng của tôi", "Tên miền đã thuê",
+                "Thông tin cá nhân",
                 "Hỗ trợ" };
 
         for (String item : menuItems) {
@@ -219,12 +221,12 @@ public class UserDashboardView extends JFrame {
                 case "Tìm kiếm tên miền":
                     switchPanel(SEARCH_DOMAIN_PANEL);
                     break;
-                    case "Tên miền của tôi":
+                case "Giỏ hàng của tôi":
                     MyDomainsPanel myDomainsPanel = (MyDomainsPanel) mainContentPanel.getComponent(2);
                     myDomainsPanel.loadDomainsFromDatabase(); // Tải dữ liệu
                     switchPanel(MY_DOMAINS_PANEL);
                     break;
-                case "Đơn hàng":
+                case "Tên miền đã thuê":
                     OrdersPanel ordersPanel = (OrdersPanel) mainContentPanel.getComponent(3);
                     updateOrdersPanel(ordersPanel); // Tải dữ liệu
                     switchPanel(ORDERS_PANEL);
@@ -236,7 +238,7 @@ public class UserDashboardView extends JFrame {
                     switchPanel(SUPPORT_PANEL);
                     break;
             }
-            });
+        });
 
         return button;
     }
@@ -277,9 +279,9 @@ public class UserDashboardView extends JFrame {
         try (Connection connection = DatabaseConnection.getConnection()) {
             // Sử dụng JOIN để lấy thông tin tên miền từ bảng domains
             String query = "SELECT d.name + d.extension AS domain_name, o.total_price, o.created_at, o.status " +
-                        "FROM orders o " +
-                        "JOIN domains d ON o.domain_id = d.id " +
-                        "WHERE o.buyer_id = ?";
+                    "FROM orders o " +
+                    "JOIN domains d ON o.domain_id = d.id " +
+                    "WHERE o.buyer_id = ?";
             try (PreparedStatement stmt = connection.prepareStatement(query)) {
                 stmt.setInt(1, loggedInUser.getId()); // Lấy ID người dùng hiện tại
                 ResultSet rs = stmt.executeQuery();
@@ -298,7 +300,8 @@ public class UserDashboardView extends JFrame {
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi khi tải thông tin đơn hàng: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Lỗi khi tải thông tin đơn hàng: " + e.getMessage(), "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
