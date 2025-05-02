@@ -60,6 +60,11 @@ public class OrderDetailsService {
         return orderDetailsRepository.findByUserId(userId);
     }
 
+    // Get all order details for a specific domain
+    public List<OrderDetails> getOrderDetailsByDomainId(int domainId) {
+        return orderDetailsRepository.findByDomainId(domainId);
+    }
+
     // Update status of an order detail
     public boolean updateOrderDetailStatus(int orderDetailId, String status) {
         try {

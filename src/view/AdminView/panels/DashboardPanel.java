@@ -317,9 +317,26 @@ public class DashboardPanel extends JPanel {
             for (int i = 0; i < expiringDomains.size(); i++) {
                 Domain domain = expiringDomains.get(i);
 
-                // Tìm order gần nhất liên quan đến domain này để lấy thông tin người mua
-                Order latestOrder = orderRepository.findLatestOrderByDomainId(domain.getId());
-                User owner = latestOrder != null ? userRepository.getUserById(latestOrder.getUserId()) : null;
+                // Lấy thông tin chi tiết đơn hàng liên quan đến tên miền này
+                User owner = null;
+                try {
+                    // Lấy tất cả order details có chứa domain này
+                    List<OrderDetails> details = orderDetailsService.getOrderDetailsByDomainId(domain.getId());
+                    if (!details.isEmpty()) {
+                        // Lấy order id từ order detail đầu tiên
+                        int orderId = details.get(0).getOrderId();
+                        // Lấy order từ order id
+                        Order order = orderRepository.getOrderById(orderId);
+                        if (order != null) {
+                            // Lấy thông tin người dùng từ order
+                            owner = userRepository.getUserById(order.getUserId());
+                        }
+                    }
+                } catch (Exception e) {
+                    // Nếu xảy ra lỗi, tiếp tục thử cách cũ
+                    Order latestOrder = orderRepository.findLatestOrderByDomainId(domain.getId());
+                    owner = latestOrder != null ? userRepository.getUserById(latestOrder.getUserId()) : null;
+                }
 
                 // Tính số ngày còn lại - chuyển đổi LocalDateTime sang Date để tính toán
                 long daysLeft = 0;

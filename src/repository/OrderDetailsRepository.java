@@ -103,6 +103,31 @@ public class OrderDetailsRepository {
         return detailsList;
     }
 
+    public OrderDetails getOrderDetailById(int detailId) {
+        String sql = "SELECT * FROM order_details WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, detailId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return new OrderDetails(
+                            rs.getInt("id"),
+                            rs.getInt("order_id"),
+                            rs.getInt("domain_id"),
+                            rs.getString("domain_name"),
+                            rs.getString("domain_extension"),
+                            rs.getDouble("price"),
+                            rs.getTimestamp("purchase_date").toLocalDateTime(),
+                            rs.getString("status"));
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting order detail by ID: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public List<OrderDetails> findByUserId(int userId) {
         List<OrderDetails> detailsList = new ArrayList<>();
         String sql = "SELECT od.* FROM order_details od " +
@@ -153,6 +178,74 @@ public class OrderDetailsRepository {
         }
     }
 
+    public boolean updateOrderDetailStatus(int detailId, String status) {
+        String sql = "UPDATE order_details SET status = ? WHERE id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setString(1, status);
+            stmt.setInt(2, detailId);
+
+            int affectedRows = stmt.executeUpdate();
+
+            if (affectedRows > 0) {
+                // If status is updated successfully, check if all domain statuses are complete
+                // and update the parent order status accordingly
+                updateParentOrderStatusIfNeeded(detailId);
+                return true;
+            }
+            return false;
+        } catch (SQLException e) {
+            System.err.println("Error updating order detail status: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private void updateParentOrderStatusIfNeeded(int detailId) {
+        try {
+            // Get the order ID for this detail
+            int orderId = -1;
+
+            String getOrderIdSql = "SELECT order_id FROM order_details WHERE id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(getOrderIdSql)) {
+                stmt.setInt(1, detailId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        orderId = rs.getInt("order_id");
+                    } else {
+                        return; // Detail not found
+                    }
+                }
+            }
+
+            // Check if all domains in this order are complete
+            boolean allComplete = true;
+
+            String checkStatusSql = "SELECT status FROM order_details WHERE order_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(checkStatusSql)) {
+                stmt.setInt(1, orderId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next() && allComplete) {
+                        String status = rs.getString("status");
+                        allComplete = "Hoàn thành".equals(status);
+                    }
+                }
+            }
+
+            // If all domains are complete, update the order status
+            if (allComplete) {
+                String updateOrderSql = "UPDATE orders SET status = 'Hoàn thành' WHERE id = ?";
+                try (PreparedStatement stmt = connection.prepareStatement(updateOrderSql)) {
+                    stmt.setInt(1, orderId);
+                    stmt.executeUpdate();
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error checking/updating parent order status: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
     public boolean deleteByOrderId(int orderId) {
         String sql = "DELETE FROM order_details WHERE order_id = ?";
 
@@ -165,5 +258,32 @@ public class OrderDetailsRepository {
             e.printStackTrace();
             return false;
         }
+    }
+
+    public List<OrderDetails> findByDomainId(int domainId) {
+        List<OrderDetails> detailsList = new ArrayList<>();
+        String sql = "SELECT * FROM order_details WHERE domain_id = ?";
+
+        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+            stmt.setInt(1, domainId);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    OrderDetails details = new OrderDetails(
+                            rs.getInt("id"),
+                            rs.getInt("order_id"),
+                            rs.getInt("domain_id"),
+                            rs.getString("domain_name"),
+                            rs.getString("domain_extension"),
+                            rs.getDouble("price"),
+                            rs.getTimestamp("purchase_date").toLocalDateTime(),
+                            rs.getString("status"));
+                    detailsList.add(details);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error finding order details by domain ID: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return detailsList;
     }
 }
