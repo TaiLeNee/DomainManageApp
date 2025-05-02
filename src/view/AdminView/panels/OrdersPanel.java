@@ -22,6 +22,7 @@ import repository.DomainRepository;
 import repository.OrderDetailsRepository;
 import repository.OrderRepository;
 import repository.UserRepository;
+import repository.RentalPeriodRepository;
 import service.OrderDetailsService;
 
 public class OrdersPanel extends JPanel {
@@ -34,6 +35,7 @@ public class OrdersPanel extends JPanel {
     private UserRepository userRepository;
     private OrderDetailsService orderDetailsService;
     private OrderDetailsRepository orderDetailsRepository;
+    private RentalPeriodRepository rentalPeriodRepository;
 
     private JTable ordersTable;
     private JTable detailsTable;
@@ -54,6 +56,7 @@ public class OrdersPanel extends JPanel {
         this.userRepository = userRepository;
         this.orderDetailsService = new OrderDetailsService();
         this.orderDetailsRepository = new OrderDetailsRepository();
+        this.rentalPeriodRepository = new RentalPeriodRepository();
         this.parentFrame = parentFrame;
 
         setLayout(new BorderLayout());
@@ -168,7 +171,8 @@ public class OrdersPanel extends JPanel {
         detailsPanel.setBackground(Color.WHITE);
         detailsPanel.setBorder(BorderFactory.createTitledBorder("Chi tiết đơn hàng - Tên miền"));
 
-        String[] detailColumns = { "ID", "Tên miền", "Giá", "Ngày mua", "Trạng thái" };
+        String[] detailColumns = { "ID", "Tên miền", "Giá gốc (1 tháng)", "Thời hạn & Giảm giá", "Tổng tiền",
+                "Ngày mua", "Trạng thái" };
         detailsTableModel = new DefaultTableModel(detailColumns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -337,6 +341,7 @@ public class OrdersPanel extends JPanel {
     private void populateDetailsTable(List<OrderDetails> orderDetails) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
         DecimalFormat priceFormat = new DecimalFormat("#,### VND");
+        DecimalFormat discountFormat = new DecimalFormat("#.##%");
 
         for (OrderDetails detail : orderDetails) {
             // Xử lý an toàn cho ngày mua
@@ -350,18 +355,70 @@ public class OrdersPanel extends JPanel {
                 System.err.println("Lỗi định dạng ngày mua: " + e.getMessage());
             }
 
+            // Lấy thông tin về thời hạn thuê
+            String rentalInfo = "1 tháng";
+            int months = 1;
+            double discount = 0.0;
+            try {
+                if (detail.getRentalPeriodId() > 0) {
+                    model.RentalPeriod rentalPeriod = rentalPeriodRepository
+                            .getRentalPeriodById(detail.getRentalPeriodId());
+                    if (rentalPeriod != null) {
+                        discount = rentalPeriod.getDiscount();
+                        months = rentalPeriod.getMonths();
+
+                        // Hiển thị thông tin thời hạn và giảm giá
+                        if (discount > 0) {
+                            rentalInfo = months + " tháng (giảm " + discountFormat.format(discount) + ")";
+                        } else {
+                            rentalInfo = months + " tháng";
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi lấy thông tin thời hạn thuê: " + e.getMessage());
+            }
+
+            // Lấy giá gốc 1 tháng trực tiếp từ Domain thay vì tính toán
+            double oneMonthPrice = 0;
+            double totalPrice = 0;
+
+            try {
+                // Lấy Domain từ domainId
+                Domain domain = domainRepository.getDomainById(detail.getDomainId());
+                if (domain != null) {
+                    // Giá gốc 1 tháng lấy trực tiếp từ domain
+                    oneMonthPrice = domain.getPrice();
+
+                    // Tính tổng tiền dựa trên giá gốc, số tháng và giảm giá
+                    totalPrice = oneMonthPrice * months * (1 - discount);
+                } else {
+                    // Nếu không tìm thấy domain, sử dụng giá từ chi tiết đơn hàng
+                    totalPrice = detail.getPrice();
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi lấy thông tin domain: " + e.getMessage());
+                // Fallback: Nếu không lấy được từ Domain, sử dụng giá từ OrderDetails
+                totalPrice = detail.getPrice();
+                if (months > 0 && detail.getOriginalPrice() > 0) {
+                    oneMonthPrice = detail.getOriginalPrice() / months;
+                }
+            }
+
             // Thêm hàng vào bảng chi tiết đơn hàng
             detailsTableModel.addRow(new Object[] {
                     "#" + detail.getId(),
                     detail.getFullDomainName(),
-                    priceFormat.format(detail.getPrice()),
+                    priceFormat.format(oneMonthPrice),
+                    rentalInfo,
+                    priceFormat.format(totalPrice),
                     purchaseDate,
                     detail.getStatus()
             });
         }
 
         if (orderDetails.isEmpty()) {
-            detailsTableModel.addRow(new Object[] { "", "", "", "", "Không có chi tiết đơn hàng" });
+            detailsTableModel.addRow(new Object[] { "", "", "", "", "", "", "Không có chi tiết đơn hàng" });
         }
     }
 

@@ -8,22 +8,29 @@ public class OrderDetails {
     private int domainId;
     private String domainName;
     private String domainExtension;
-    private double price;
+    private double price; // This will store the final discounted price
+    private double originalPrice; // This will store the original price before discount
     private LocalDateTime purchaseDate;
+    private LocalDateTime expiryDate;
+    private int rentalPeriodId;
     private String status;
 
     public OrderDetails() {
     }
 
     public OrderDetails(int id, int orderId, int domainId, String domainName,
-            String domainExtension, double price, LocalDateTime purchaseDate, String status) {
+            String domainExtension, double price, double originalPrice, LocalDateTime purchaseDate,
+            LocalDateTime expiryDate, int rentalPeriodId, String status) {
         this.id = id;
         this.orderId = orderId;
         this.domainId = domainId;
         this.domainName = domainName;
         this.domainExtension = domainExtension;
         this.price = price;
+        this.originalPrice = originalPrice;
         this.purchaseDate = purchaseDate;
+        this.expiryDate = expiryDate;
+        this.rentalPeriodId = rentalPeriodId;
         this.status = status;
     }
 
@@ -76,12 +83,36 @@ public class OrderDetails {
         this.price = price;
     }
 
+    public double getOriginalPrice() {
+        return originalPrice;
+    }
+
+    public void setOriginalPrice(double originalPrice) {
+        this.originalPrice = originalPrice;
+    }
+
     public LocalDateTime getPurchaseDate() {
         return purchaseDate;
     }
 
     public void setPurchaseDate(LocalDateTime purchaseDate) {
         this.purchaseDate = purchaseDate;
+    }
+
+    public LocalDateTime getExpiryDate() {
+        return expiryDate;
+    }
+
+    public void setExpiryDate(LocalDateTime expiryDate) {
+        this.expiryDate = expiryDate;
+    }
+
+    public int getRentalPeriodId() {
+        return rentalPeriodId;
+    }
+
+    public void setRentalPeriodId(int rentalPeriodId) {
+        this.rentalPeriodId = rentalPeriodId;
     }
 
     public String getStatus() {
@@ -94,5 +125,12 @@ public class OrderDetails {
 
     public String getFullDomainName() {
         return domainName + domainExtension;
+    }
+
+    // Get discount percentage
+    public double getDiscountPercentage() {
+        if (originalPrice <= 0)
+            return 0;
+        return ((originalPrice - price) / originalPrice) * 100;
     }
 }

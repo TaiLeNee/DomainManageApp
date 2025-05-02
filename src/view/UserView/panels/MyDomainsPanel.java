@@ -151,290 +151,47 @@ public class MyDomainsPanel extends JPanel {
     /// Xử lý sự kiện thanh toán
     private void handlePayment() {
         // Lấy danh sách tên miền được chọn
-        StringBuilder selectedDomains = new StringBuilder();
+        StringBuilder selectedDomainsBuilder = new StringBuilder();
+        HashMap<String, Double> domainPrices = new HashMap<>();
+        HashMap<String, Integer> domainRentalPeriods = new HashMap<>();
+        double totalAmount = 0.0;
+
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             if ((boolean) tableModel.getValueAt(i, 2)) {
                 String domainName = (String) tableModel.getValueAt(i, 0);
                 String priceText = (String) tableModel.getValueAt(i, 1);
                 double price = Double.parseDouble(priceText.replace(",", "").replace(" VND", ""));
-                selectedDomains.append(domainName).append(",");
-                totalPrice += price;
+
+                // Lấy thông tin rental period ID
+                int rentalPeriodId = getSelectedRentalPeriodId();
+
+                selectedDomainsBuilder.append(domainName).append(",");
+                domainPrices.put(domainName, price);
+                domainRentalPeriods.put(domainName, rentalPeriodId);
+                totalAmount += price;
             }
         }
 
-        if (selectedDomains.length() == 0) {
-            JOptionPane.showMessageDialog(this, "Vui lòng chọn ít nhất một tên miền để thanh toán.", "Thông báo",
+        if (selectedDomainsBuilder.length() == 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Vui lòng chọn ít nhất một tên miền để thanh toán.",
+                    "Thông báo",
                     JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         // Xóa dấu phẩy cuối cùng
-        selectedDomains.setLength(selectedDomains.length() - 1);
+        selectedDomainsBuilder.setLength(selectedDomainsBuilder.length() - 1);
+        String[] selectedDomains = selectedDomainsBuilder.toString().split(",");
 
-        // Tạo cửa sổ JDialog
-        JDialog paymentDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Thanh toán", true);
-        paymentDialog.setSize(500, 600);
-        paymentDialog.setLocationRelativeTo(this);
-        paymentDialog.setLayout(new BorderLayout());
-
-        // Panel hiển thị thông tin tên miền và tổng giá
-        JPanel infoPanel = new JPanel(new BorderLayout());
-        infoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-
-        JTextArea domainInfoArea = new JTextArea(selectedDomains.toString().replace(",", "\n"));
-        domainInfoArea.setEditable(false);
-        domainInfoArea.setFont(new Font("Arial", Font.PLAIN, 14));
-        domainInfoArea.setBorder(BorderFactory.createTitledBorder("Tên miền đã chọn"));
-        infoPanel.add(new JScrollPane(domainInfoArea), BorderLayout.CENTER);
-
-        JLabel totalLabel = new JLabel("Tổng tiền: " + String.format("%,.0f VND", totalPrice));
-        totalLabel.setFont(new Font("Arial", Font.BOLD, 16));
-        totalLabel.setHorizontalAlignment(SwingConstants.RIGHT);
-        totalLabel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
-        infoPanel.add(totalLabel, BorderLayout.SOUTH);
-
-        paymentDialog.add(infoPanel, BorderLayout.CENTER);
-
-        // Panel chọn thời gian sử dụng
-        JPanel rentalPeriodPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        rentalPeriodPanel.setBorder(BorderFactory.createTitledBorder("Thời gian sử dụng"));
-
-        JComboBox<String> rentalPeriodComboBox = new JComboBox<>();
-        rentalPeriodComboBox.addItem("1 tháng - Không giảm giá");
-        rentalPeriodComboBox.addItem("6 tháng - Giảm 10%");
-        rentalPeriodComboBox.addItem("12 tháng - Giảm 20%");
-        rentalPeriodPanel.add(rentalPeriodComboBox);
-
-        paymentDialog.add(rentalPeriodPanel, BorderLayout.NORTH);
-
-        // Lắng nghe thay đổi trong ComboBox để cập nhật tổng tiền
-        rentalPeriodComboBox.addActionListener(e -> {
-            int selectedIndex = rentalPeriodComboBox.getSelectedIndex();
-            double discount = 0.0;
-            if (selectedIndex == 1) { // 6 tháng
-                discount = 0.10;
-            } else if (selectedIndex == 2) { // 12 tháng
-                discount = 0.20;
-            }
-            double discountedPrice = totalPrice * (1 - discount);
-            totalLabel.setText("Tổng tiền: " + String.format("%,.0f VND", discountedPrice));
-        });
-
-        // Panel chọn phương thức thanh toán
-        JPanel paymentMethodPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        paymentMethodPanel.setBorder(BorderFactory.createTitledBorder("Phương thức thanh toán"));
-
-        JRadioButton qrPaymentButton = new JRadioButton("Quét mã QR");
-        JRadioButton cardPaymentButton = new JRadioButton("Thẻ");
-        ButtonGroup paymentGroup = new ButtonGroup();
-        paymentGroup.add(qrPaymentButton);
-        paymentGroup.add(cardPaymentButton);
-
-        paymentMethodPanel.add(qrPaymentButton);
-        paymentMethodPanel.add(cardPaymentButton);
-
-        // Panel chứa nút Xác nhận và Hủy
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-
-        JButton confirmButton = new JButton("Xác nhận");
-        confirmButton.setBackground(new Color(39, 174, 96));
-        confirmButton.setForeground(Color.BLACK);
-        confirmButton.setFont(new Font("Arial", Font.BOLD, 14));
-        confirmButton.addActionListener(e -> {
-            if (!qrPaymentButton.isSelected() && !cardPaymentButton.isSelected()) {
-                JOptionPane.showMessageDialog(paymentDialog, "Vui lòng chọn phương thức thanh toán.", "Thông báo",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            int selectedIndex = rentalPeriodComboBox.getSelectedIndex();
-            double discount = 0.0;
-            if (selectedIndex == 1) { // 6 tháng
-                discount = 0.10;
-            } else if (selectedIndex == 2) { // 12 tháng
-                discount = 0.20;
-            }
-            double finalPrice = totalPrice * (1 - discount);
-
-            if (qrPaymentButton.isSelected()) {
-                showQRCodeDialog();
-            } else {
-                showCardPaymentDialog(finalPrice);
-            }
-
-            // Xử lý thanh toán và cập nhật cơ sở dữ liệu
-            processPayment(selectedDomains.toString(), finalPrice);
-
-            paymentDialog.dispose();
-        });
-
-        JButton cancelButton = new JButton("Hủy");
-        cancelButton.setBackground(new Color(231, 76, 60));
-        cancelButton.setForeground(Color.BLACK);
-        cancelButton.setFont(new Font("Arial", Font.BOLD, 14));
-        cancelButton.addActionListener(e -> paymentDialog.dispose());
-
-        buttonPanel.add(confirmButton);
-        buttonPanel.add(cancelButton);
-
-        // Tạo panel chứa cả phương thức thanh toán và các nút
-        JPanel southPanel = new JPanel(new BorderLayout());
-        southPanel.add(paymentMethodPanel, BorderLayout.CENTER);
-        southPanel.add(buttonPanel, BorderLayout.SOUTH);
-
-        paymentDialog.add(southPanel, BorderLayout.SOUTH);
-
-        // Hiển thị cửa sổ JDialog
+        // Hiển thị dialog thanh toán mới
+        PaymentDialog paymentDialog = new PaymentDialog(
+                (Frame) SwingUtilities.getWindowAncestor(this),
+                selectedDomains,
+                domainPrices,
+                domainRentalPeriods,
+                this);
         paymentDialog.setVisible(true);
-    }
-
-    // Phương thức hiển thị JDialog mã QR
-    private void showQRCodeDialog() {
-        JDialog qrDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Quét mã QR", true);
-        qrDialog.setSize(400, 400);
-        qrDialog.setLocationRelativeTo(this);
-        qrDialog.setLayout(new BorderLayout());
-
-        // Hiển thị mã QR từ tệp ảnh
-        JLabel qrLabel = new JLabel("", SwingConstants.CENTER);
-        qrLabel.setBorder(BorderFactory.createTitledBorder("Mã QR"));
-        qrLabel.setIcon(new ImageIcon("src\\img\\qrcode-default.png")); // Đường dẫn đến tệp ảnh mã QR
-        qrDialog.add(qrLabel, BorderLayout.CENTER);
-
-        // Nút xác nhận
-        JButton confirmButton = new JButton("Xác nhận");
-        confirmButton.setBackground(new Color(39, 174, 96));
-        confirmButton.setForeground(Color.BLACK);
-        confirmButton.setFont(new Font("Arial", Font.BOLD, 14));
-        confirmButton.addActionListener(e -> {
-            JOptionPane.showMessageDialog(qrDialog, "Thanh toán thành công bằng Quét mã QR!", "Thông báo",
-                    JOptionPane.INFORMATION_MESSAGE);
-            qrDialog.dispose();
-        });
-
-        // Nút hủy
-        JButton cancelButton = new JButton("Hủy");
-        cancelButton.setBackground(new Color(231, 76, 60));
-        cancelButton.setForeground(Color.BLACK);
-        cancelButton.setFont(new Font("Arial", Font.BOLD, 14));
-        cancelButton.addActionListener(e -> qrDialog.dispose()); // Chỉ đóng qrDialog
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        buttonPanel.add(confirmButton);
-        buttonPanel.add(cancelButton);
-
-        qrDialog.add(buttonPanel, BorderLayout.SOUTH);
-
-        qrDialog.setVisible(true);
-    }
-
-    // Phương thức hiển thị JDialog thanh toán bằng thẻ
-    private void showCardPaymentDialog(double totalPrice) {
-        JDialog cardDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Thanh toán bằng thẻ", true);
-        cardDialog.setSize(400, 300);
-        cardDialog.setLocationRelativeTo(this);
-        cardDialog.setLayout(new BorderLayout());
-
-        // Panel chứa các trường thông tin thẻ
-        JPanel cardInfoPanel = new JPanel(new GridBagLayout());
-        cardInfoPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-
-        // Số thẻ
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        cardInfoPanel.add(new JLabel("Số thẻ:"), gbc);
-
-        gbc.gridx = 1;
-        JTextField cardNumberField = new JTextField(20);
-        cardInfoPanel.add(cardNumberField, gbc);
-
-        // Tên chủ thẻ
-        gbc.gridx = 0;
-        gbc.gridy = 1;
-        cardInfoPanel.add(new JLabel("Tên chủ thẻ:"), gbc);
-
-        gbc.gridx = 1;
-        JTextField cardHolderField = new JTextField(20);
-        cardInfoPanel.add(cardHolderField, gbc);
-
-        // Ngày hết hạn
-        gbc.gridx = 0;
-        gbc.gridy = 2;
-        cardInfoPanel.add(new JLabel("Ngày hết hạn (MM/YY):"), gbc);
-
-        gbc.gridx = 1;
-        JTextField expiryDateField = new JTextField(10);
-        cardInfoPanel.add(expiryDateField, gbc);
-
-        // Mã CVV
-        gbc.gridx = 0;
-        gbc.gridy = 3;
-        cardInfoPanel.add(new JLabel("Mã CVV:"), gbc);
-
-        gbc.gridx = 1;
-        JTextField cvvField = new JTextField(5);
-        cardInfoPanel.add(cvvField, gbc);
-
-        cardDialog.add(cardInfoPanel, BorderLayout.CENTER);
-
-        // Nút xác nhận
-        JButton confirmButton = new JButton("Xác nhận");
-        confirmButton.setBackground(new Color(39, 174, 96));
-        confirmButton.setForeground(Color.BLACK);
-        confirmButton.setFont(new Font("Arial", Font.BOLD, 14));
-        confirmButton.addActionListener(e -> {
-            String cardNumber = cardNumberField.getText().trim();
-            String cardHolder = cardHolderField.getText().trim();
-            String expiryDate = expiryDateField.getText().trim();
-            String cvv = cvvField.getText().trim();
-
-            // Kiểm tra thông tin thẻ
-            if (cardNumber.isEmpty() || cardHolder.isEmpty() || expiryDate.isEmpty() || cvv.isEmpty()) {
-                JOptionPane.showMessageDialog(cardDialog, "Vui lòng nhập đầy đủ thông tin thẻ.", "Thông báo",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            if (!ValidationUtils.isValidCardNumber(cardNumber)) {
-                JOptionPane.showMessageDialog(cardDialog, "Số thẻ không hợp lệ.", "Thông báo",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            if (!ValidationUtils.isValidExpiryDate(expiryDate)) {
-                JOptionPane.showMessageDialog(cardDialog, "Ngày hết hạn không hợp lệ. Định dạng phải là MM/YY.",
-                        "Thông báo", JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            if (!ValidationUtils.isValidCVV(cvv)) {
-                JOptionPane.showMessageDialog(cardDialog, "Mã CVV không hợp lệ.", "Thông báo",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-
-            JOptionPane.showMessageDialog(cardDialog, "Thanh toán thành công bằng thẻ!", "Thông báo",
-                    JOptionPane.INFORMATION_MESSAGE);
-            cardDialog.dispose();
-        });
-
-        // Nút hủy
-        JButton cancelButton = new JButton("Hủy");
-        cancelButton.setBackground(new Color(231, 76, 60));
-        cancelButton.setForeground(Color.BLACK);
-        cancelButton.setFont(new Font("Arial", Font.BOLD, 14));
-        cancelButton.addActionListener(e -> cardDialog.dispose()); // Chỉ đóng cardDialog
-
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
-        buttonPanel.add(confirmButton);
-        buttonPanel.add(cancelButton);
-
-        cardDialog.add(buttonPanel, BorderLayout.SOUTH);
-
-        cardDialog.setVisible(true);
     }
 
     private void handleDelete() {
@@ -503,18 +260,26 @@ public class MyDomainsPanel extends JPanel {
             }
             placeholders.setLength(placeholders.length() - 1); // Xóa dấu phẩy cuối cùng
 
-            // Lấy danh sách domain_id từ bảng domains
-            String getDomainIdsSQL = "SELECT id, name, extension, price FROM domains WHERE CONCAT(name, extension) IN ("
-                    + placeholders + ")";
+            // Lấy danh sách domain_id và rental_period_id từ bảng cart
+            String getDomainIdsSQL = "SELECT d.id, d.name, d.extension, d.price, c.rental_period_id " +
+                    "FROM domains d " +
+                    "JOIN cart c ON d.id = c.domain_id " +
+                    "WHERE CONCAT(d.name, d.extension) IN (" + placeholders + ") " +
+                    "AND c.user_id = ?";
+
             List<Integer> domainIdsList = new ArrayList<>();
             Map<Integer, String> domainNames = new HashMap<>();
             Map<Integer, String> domainExtensions = new HashMap<>();
             Map<Integer, Double> domainPrices = new HashMap<>();
+            Map<Integer, Integer> domainRentalPeriodIds = new HashMap<>();
 
             try (PreparedStatement getDomainIdsStmt = connection.prepareStatement(getDomainIdsSQL)) {
-                for (int i = 0; i < domainArray.length; i++) {
-                    getDomainIdsStmt.setString(i + 1, domainArray[i].trim());
+                int paramIndex = 1;
+                for (String domain : domainArray) {
+                    getDomainIdsStmt.setString(paramIndex++, domain.trim());
                 }
+                getDomainIdsStmt.setInt(paramIndex, getLoggedInUserId());
+
                 ResultSet rs = getDomainIdsStmt.executeQuery();
                 while (rs.next()) {
                     int id = rs.getInt("id");
@@ -522,6 +287,7 @@ public class MyDomainsPanel extends JPanel {
                     domainNames.put(id, rs.getString("name"));
                     domainExtensions.put(id, rs.getString("extension"));
                     domainPrices.put(id, rs.getDouble("price"));
+                    domainRentalPeriodIds.put(id, rs.getInt("rental_period_id"));
                 }
             }
 
@@ -543,17 +309,21 @@ public class MyDomainsPanel extends JPanel {
                 deleteCartStmt.executeUpdate();
             }
 
-            // Tạo một đơn hàng duy nhất
-            int rentalPeriodId = getSelectedRentalPeriodId();
-            int rentalMonths = getSelectedRentalPeriodMonths();
+            // Tạo một đơn hàng duy nhất cho tất cả domain
+            // Sử dụng thông tin của domain đầu tiên cho đơn hàng chính
+            int firstDomainId = domainIdsList.get(0);
+            int firstRentalPeriodId = domainRentalPeriodIds.get(firstDomainId);
+
+            // Lấy thông tin số tháng cho gói thuê đầu tiên
+            int rentalMonths = getRentalMonthsById(firstRentalPeriodId);
             int orderId = 0;
 
             String createOrderSQL = "INSERT INTO orders (buyer_id, domain_id, rental_period_id, status, created_at, expiry_date, total_price) VALUES (?, ?, ?, ?, GETDATE(), DATEADD(month, ?, GETDATE()), ?)";
             try (PreparedStatement createOrderStmt = connection.prepareStatement(createOrderSQL,
                     Statement.RETURN_GENERATED_KEYS)) {
                 createOrderStmt.setInt(1, getLoggedInUserId());
-                createOrderStmt.setInt(2, domainIdsList.get(0)); // Sử dụng domain_id đầu tiên cho đơn hàng chính
-                createOrderStmt.setInt(3, rentalPeriodId);
+                createOrderStmt.setInt(2, firstDomainId); // Sử dụng domain_id đầu tiên cho đơn hàng chính
+                createOrderStmt.setInt(3, firstRentalPeriodId);
                 createOrderStmt.setString(4, "Đang xử lý");
                 createOrderStmt.setInt(5, rentalMonths);
                 createOrderStmt.setDouble(6, totalPrice);
@@ -569,27 +339,27 @@ public class MyDomainsPanel extends JPanel {
                 }
             }
 
-            // Tính toán giảm giá dựa trên gói thuê
-            double discount = 0.0;
-            if (rentalPeriodId == 2) { // 6 tháng - giảm 10%
-                discount = 0.10;
-            } else if (rentalPeriodId == 3) { // 12 tháng - giảm 20%
-                discount = 0.20;
-            }
-
-            // Tạo chi tiết đơn hàng cho từng tên miền
-            String insertOrderDetailsSQL = "INSERT INTO order_details (order_id, domain_id, domain_name, domain_extension, price, purchase_date, status) VALUES (?, ?, ?, ?, ?, GETDATE(), ?)";
+            // Tạo chi tiết đơn hàng cho từng tên miền với rental period tương ứng
+            String insertOrderDetailsSQL = "INSERT INTO order_details (order_id, domain_id, domain_name, domain_extension, price, original_price, rental_period_id, purchase_date, status, expiry_date) VALUES (?, ?, ?, ?, ?, ?, ?, GETDATE(), ?, DATEADD(month, ?, GETDATE()))";
             try (PreparedStatement insertDetailsStmt = connection.prepareStatement(insertOrderDetailsSQL)) {
                 for (int domainId : domainIdsList) {
-                    // Tính giá cho từng tên miền với áp dụng giảm giá
-                    double domainPrice = domainPrices.get(domainId) * rentalMonths * (1 - discount);
+                    int rentalPeriodId = domainRentalPeriodIds.get(domainId);
+                    int months = getRentalMonthsById(rentalPeriodId);
+                    double discount = getDiscountById(rentalPeriodId);
+
+                    double basePrice = domainPrices.get(domainId);
+                    double originalPrice = basePrice * months;
+                    double finalPrice = originalPrice * (1 - discount);
 
                     insertDetailsStmt.setInt(1, orderId);
                     insertDetailsStmt.setInt(2, domainId);
                     insertDetailsStmt.setString(3, domainNames.get(domainId));
                     insertDetailsStmt.setString(4, domainExtensions.get(domainId));
-                    insertDetailsStmt.setDouble(5, domainPrice);
-                    insertDetailsStmt.setString(6, "Đang xử lý");
+                    insertDetailsStmt.setDouble(5, finalPrice);
+                    insertDetailsStmt.setDouble(6, originalPrice);
+                    insertDetailsStmt.setInt(7, rentalPeriodId);
+                    insertDetailsStmt.setString(8, "Đang xử lý");
+                    insertDetailsStmt.setInt(9, months);
                     insertDetailsStmt.addBatch();
                 }
                 insertDetailsStmt.executeBatch();
@@ -665,6 +435,28 @@ public class MyDomainsPanel extends JPanel {
                 return 12; // 12 tháng
             default:
                 return 1; // 1 tháng
+        }
+    }
+
+    private int getRentalMonthsById(int rentalPeriodId) {
+        switch (rentalPeriodId) {
+            case 2:
+                return 6; // 6 tháng
+            case 3:
+                return 12; // 12 tháng
+            default:
+                return 1; // 1 tháng
+        }
+    }
+
+    private double getDiscountById(int rentalPeriodId) {
+        switch (rentalPeriodId) {
+            case 2:
+                return 0.10; // Giảm 10% cho 6 tháng
+            case 3:
+                return 0.20; // Giảm 20% cho 12 tháng
+            default:
+                return 0.0; // Không giảm giá cho 1 tháng
         }
     }
 }

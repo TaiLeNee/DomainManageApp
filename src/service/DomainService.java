@@ -60,35 +60,19 @@ public class DomainService {
             // Lấy tất cả tên miền
             List<Domain> domains = domainRepository.getAllDomains();
 
-            // Lọc tên miền còn hạn sử dụng đúng 1 tháng (30 ngày)
-            Date currentDate = new Date();
-            Calendar calendar = Calendar.getInstance();
-            calendar.setTime(currentDate);
-            calendar.add(Calendar.DAY_OF_MONTH, 30); // Thiết lập mốc thời gian 30 ngày
-            Date oneMonthDate = calendar.getTime();
-
-            // Thiết lập mức dưới là 27 ngày (xấp xỉ 1 tháng)
-            calendar.setTime(currentDate);
-            calendar.add(Calendar.DAY_OF_MONTH, 27);
-            Date lowerBoundDate = calendar.getTime();
-
-            // Thiết lập mức trên là 33 ngày (xấp xỉ 1 tháng)
-            calendar.setTime(currentDate);
-            calendar.add(Calendar.DAY_OF_MONTH, 33);
-            Date upperBoundDate = calendar.getTime();
+            // Lọc tên miền sắp hết hạn trong khoảng thời gian daysThreshold (mặc định 30
+            // ngày)
+            LocalDateTime currentDateTime = LocalDateTime.now();
+            LocalDateTime thresholdDateTime = currentDateTime.plusDays(daysThreshold);
 
             List<Domain> expiringDomains = domains.stream()
                     .filter(domain -> {
-                        // Chuyển đổi LocalDateTime sang Date để so sánh
-                        LocalDateTime expiryLocalDateTime = domain.getExpiryDate();
-                        if (expiryLocalDateTime == null) {
+                        LocalDateTime expiryDate = domain.getExpiryDate();
+                        if (expiryDate == null) {
                             return false;
                         }
-                        Date expiryDate = Date.from(expiryLocalDateTime.atZone(ZoneId.systemDefault()).toInstant());
-                        // Lọc domain có thời gian còn lại khoảng 1 tháng (27-33 ngày)
-                        return expiryDate != null &&
-                                !expiryDate.before(lowerBoundDate) &&
-                                !expiryDate.after(upperBoundDate);
+                        // Chỉ lấy những domain mà thời gian hết hạn nằm giữa hiện tại và ngưỡng
+                        return expiryDate.isAfter(currentDateTime) && expiryDate.isBefore(thresholdDateTime);
                     })
                     .limit(limit)
                     .collect(Collectors.toList());
@@ -123,8 +107,9 @@ public class DomainService {
         }
         RentalPeriod period = periodOpt.get();
 
-        // Tính tổng giá tiền
-        double totalPrice = domain.getPrice() * period.getMonths() * (1 - period.getDiscount());
+        // Tính giá gốc và giá sau khi giảm
+        double originalPrice = domain.getPrice() * period.getMonths();
+        double discountedPrice = calculatePriceForPeriod(domain.getPrice(), period.getMonths());
 
         // Tính ngày hết hạn
         LocalDateTime now = LocalDateTime.now();
@@ -138,13 +123,13 @@ public class DomainService {
         order.setStatus("Pending");
         order.setCreatedAt(now);
         order.setExpiryDate(expiryDate);
-        order.setTotalPrice(totalPrice);
+        order.setTotalPrice(discountedPrice); // Lưu giá đã giảm vào order
 
         // Lưu đơn hàng
         orderRepository.save(order);
 
         // Tạo chi tiết đơn hàng (OrderDetails)
-        createOrderDetails(order.getId(), domain, totalPrice, now, order.getStatus());
+        createOrderDetails(order.getId(), domain, originalPrice, discountedPrice, period, now, order.getStatus());
 
         // Cập nhật trạng thái tên miền
         domain.setStatus("Reserved");
@@ -175,8 +160,9 @@ public class DomainService {
                 }
                 Domain domain = domainOpt.get();
 
-                // Tính tổng giá tiền
-                double totalPrice = domain.getPrice() * period.getMonths() * (1 - period.getDiscount());
+                // Tính giá gốc và giá sau khi giảm
+                double originalPrice = domain.getPrice() * period.getMonths();
+                double discountedPrice = calculatePriceForPeriod(domain.getPrice(), period.getMonths());
 
                 // Tính ngày hết hạn
                 LocalDateTime now = LocalDateTime.now();
@@ -190,13 +176,14 @@ public class DomainService {
                 order.setStatus("Pending");
                 order.setCreatedAt(now);
                 order.setExpiryDate(expiryDate);
-                order.setTotalPrice(totalPrice);
+                order.setTotalPrice(discountedPrice); // Lưu giá đã giảm vào order
 
                 // Lưu đơn hàng
                 orderRepository.save(order);
 
                 // Tạo chi tiết đơn hàng (OrderDetails)
-                createOrderDetails(order.getId(), domain, totalPrice, now, order.getStatus());
+                createOrderDetails(order.getId(), domain, originalPrice, discountedPrice, period, now,
+                        order.getStatus());
 
                 // Cập nhật trạng thái tên miền
                 domain.setStatus("Reserved");
@@ -213,18 +200,23 @@ public class DomainService {
     }
 
     // Tạo chi tiết đơn hàng cho một domain
-    private void createOrderDetails(int orderId, Domain domain, double price, LocalDateTime purchaseDate,
-            String status) {
+    private void createOrderDetails(int orderId, Domain domain, double originalPrice, double discountedPrice,
+            RentalPeriod period, LocalDateTime purchaseDate, String status) {
         OrderDetails orderDetails = new OrderDetails();
         orderDetails.setOrderId(orderId);
         orderDetails.setDomainId(domain.getId());
         orderDetails.setDomainName(domain.getName());
         orderDetails.setDomainExtension(domain.getExtension());
-        orderDetails.setPrice(price);
+        orderDetails.setOriginalPrice(originalPrice); // Lưu giá gốc
+        orderDetails.setPrice(discountedPrice); // Lưu giá đã giảm
         orderDetails.setPurchaseDate(purchaseDate);
+        orderDetails.setExpiryDate(purchaseDate.plusMonths(period.getMonths())); // Set expiry date based on rental
+                                                                                 // period
+        orderDetails.setRentalPeriodId(period.getId());
         orderDetails.setStatus(status);
 
-        orderDetailsService.createOrderDetail(orderId, domain.getId(), status);
+        // Tạo chi tiết đơn hàng qua service
+        orderDetailsService.createOrderDetail(orderDetails);
     }
 
     // Phương thức để hiển thị các lựa chọn thuê cho tên miền
@@ -269,5 +261,22 @@ public class DomainService {
 
         // Nếu không tìm thấy giảm giá, trả về giá đầy đủ
         return basePrice * months;
+    }
+
+    // Get rental discount information for displaying in UI
+    public String getRentalDiscountInfo(int months) {
+        try {
+            Optional<RentalPeriod> period = rentalPeriodRepository.findByMonths(months);
+            if (period.isPresent()) {
+                double discountPercent = period.get().getDiscount() * 100;
+                if (discountPercent > 0) {
+                    return String.format("Giảm %.0f%% cho thuê %d tháng", discountPercent, months);
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting rental discount info: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return "";
     }
 }
