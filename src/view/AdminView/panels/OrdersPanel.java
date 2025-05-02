@@ -5,10 +5,13 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import model.Domain;
@@ -16,8 +19,10 @@ import model.Order;
 import model.OrderDetails;
 import model.User;
 import repository.DomainRepository;
+import repository.OrderDetailsRepository;
 import repository.OrderRepository;
 import repository.UserRepository;
+import repository.RentalPeriodRepository;
 import service.OrderDetailsService;
 
 public class OrdersPanel extends JPanel {
@@ -29,10 +34,20 @@ public class OrdersPanel extends JPanel {
     private DomainRepository domainRepository;
     private UserRepository userRepository;
     private OrderDetailsService orderDetailsService;
+    private OrderDetailsRepository orderDetailsRepository;
+    private RentalPeriodRepository rentalPeriodRepository;
+
     private JTable ordersTable;
-    private DefaultTableModel tableModel;
+    private JTable detailsTable;
+    private DefaultTableModel ordersTableModel;
+    private DefaultTableModel detailsTableModel;
     private JFrame parentFrame;
     private JComboBox<String> statusFilter;
+    private JButton updateStatusButton;
+
+    // Để theo dõi đơn hàng và chi tiết đơn hàng hiện tại được chọn
+    private int selectedOrderId = -1;
+    private int selectedOrderDetailId = -1;
 
     public OrdersPanel(OrderRepository orderRepository, DomainRepository domainRepository,
             UserRepository userRepository, JFrame parentFrame) {
@@ -40,6 +55,8 @@ public class OrdersPanel extends JPanel {
         this.domainRepository = domainRepository;
         this.userRepository = userRepository;
         this.orderDetailsService = new OrderDetailsService();
+        this.orderDetailsRepository = new OrderDetailsRepository();
+        this.rentalPeriodRepository = new RentalPeriodRepository();
         this.parentFrame = parentFrame;
 
         setLayout(new BorderLayout());
@@ -72,7 +89,18 @@ public class OrdersPanel extends JPanel {
         searchPanel.add(Box.createRigidArea(new Dimension(10, 0)));
         searchPanel.add(statusFilter);
 
-        // Nút xuất báo cáo
+        // Nút xuất báo cáo và cập nhật trạng thái
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        buttonPanel.setOpaque(false);
+
+        updateStatusButton = new JButton("Cập nhật trạng thái");
+        updateStatusButton.setBackground(new Color(39, 174, 96));
+        updateStatusButton.setForeground(Color.BLACK);
+        updateStatusButton.setFocusPainted(false);
+        updateStatusButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        updateStatusButton.setPreferredSize(new Dimension(150, 35));
+        updateStatusButton.setEnabled(false); // Mặc định không kích hoạt cho đến khi chọn một hàng
+
         JButton exportButton = new JButton("Xuất dữ liệu");
         exportButton.setBackground(new Color(52, 152, 219));
         exportButton.setForeground(Color.BLACK);
@@ -80,18 +108,38 @@ public class OrdersPanel extends JPanel {
         exportButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         exportButton.setPreferredSize(new Dimension(120, 35));
 
+        updateStatusButton.addActionListener(e -> updateSelectedStatus());
         exportButton.addActionListener(e -> exportOrderReport());
 
+        buttonPanel.add(updateStatusButton);
+        buttonPanel.add(exportButton);
+
         toolPanel.add(searchPanel, BorderLayout.WEST);
-        toolPanel.add(exportButton, BorderLayout.EAST);
+        toolPanel.add(buttonPanel, BorderLayout.EAST);
+
+        // Tạo JSplitPane để chứa hai bảng
+        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT);
+        splitPane.setResizeWeight(0.5); // Chia đều không gian
+        splitPane.setDividerSize(5);
+        splitPane.setBorder(null);
 
         // Bảng đơn hàng
-        String[] columns = { "ID", "Tên miền", "Người mua", "Ngày", "Giá", "Trạng thái", "Thao tác" };
-        tableModel = new DefaultTableModel(columns, 0);
+        JPanel ordersPanel = new JPanel(new BorderLayout());
+        ordersPanel.setBackground(Color.WHITE);
+        ordersPanel.setBorder(BorderFactory.createTitledBorder("Danh sách đơn hàng"));
 
-        ordersTable = new JTable(tableModel);
+        String[] orderColumns = { "ID", "Người mua", "Email", "Ngày đặt", "Tổng tiền", "Trạng thái" };
+        ordersTableModel = new DefaultTableModel(orderColumns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+
+        ordersTable = new JTable(ordersTableModel);
         ordersTable.setRowHeight(40);
         ordersTable.setShowVerticalLines(false);
+        ordersTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
         // Render cho cột trạng thái
         ordersTable.getColumnModel().getColumn(5).setCellRenderer(new DefaultTableCellRenderer() {
@@ -114,103 +162,124 @@ public class OrdersPanel extends JPanel {
             }
         });
 
-        // Button renderer cho cột thao tác
-        ordersTable.getColumnModel().getColumn(6).setCellRenderer(new DefaultTableCellRenderer() {
+        JScrollPane ordersScrollPane = new JScrollPane(ordersTable);
+        ordersScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        ordersPanel.add(ordersScrollPane, BorderLayout.CENTER);
+
+        // Bảng chi tiết đơn hàng (tên miền)
+        JPanel detailsPanel = new JPanel(new BorderLayout());
+        detailsPanel.setBackground(Color.WHITE);
+        detailsPanel.setBorder(BorderFactory.createTitledBorder("Chi tiết đơn hàng - Tên miền"));
+
+        String[] detailColumns = { "ID", "Tên miền", "Giá gốc (1 tháng)", "Thời hạn & Giảm giá", "Tổng tiền",
+                "Ngày mua", "Trạng thái" };
+        detailsTableModel = new DefaultTableModel(detailColumns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+
+        detailsTable = new JTable(detailsTableModel);
+        detailsTable.setRowHeight(40);
+        detailsTable.setShowVerticalLines(false);
+        detailsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+
+        // Render cho cột trạng thái của chi tiết
+        detailsTable.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
                     boolean hasFocus, int row, int column) {
-                JPanel actionsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 5, 0));
-                actionsPanel.setOpaque(false);
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 
-                JButton viewButton = new JButton("Xem");
-                viewButton.setPreferredSize(new Dimension(60, 30));
-                viewButton.setBackground(new Color(52, 152, 219));
-                viewButton.setForeground(Color.BLACK);
-                viewButton.setFocusPainted(false);
+                if ("Hoàn thành".equals(value)) {
+                    c.setForeground(new Color(39, 174, 96));
+                } else if ("Đang xử lý".equals(value)) {
+                    c.setForeground(new Color(243, 156, 18));
+                } else if ("Hủy".equals(value)) {
+                    c.setForeground(new Color(231, 76, 60));
+                } else {
+                    c.setForeground(Color.BLACK);
+                }
 
-                JButton updateButton = new JButton("Cập nhật");
-                updateButton.setPreferredSize(new Dimension(80, 30));
-                updateButton.setBackground(new Color(39, 174, 96));
-                updateButton.setForeground(Color.BLACK);
-                updateButton.setFocusPainted(false);
-
-                actionsPanel.add(viewButton);
-                actionsPanel.add(updateButton);
-
-                return actionsPanel;
+                return c;
             }
         });
 
-        // Mouse listener cho các nút trong bảng
-        ordersTable.addMouseListener(new MouseAdapter() {
+        JScrollPane detailsScrollPane = new JScrollPane(detailsTable);
+        detailsScrollPane.setBorder(BorderFactory.createEmptyBorder());
+        detailsPanel.add(detailsScrollPane, BorderLayout.CENTER);
+
+        // Thêm SelectionListener cho bảng đơn hàng
+        ordersTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
             @Override
-            public void mouseClicked(MouseEvent e) {
-                int column = ordersTable.getColumnModel().getColumnIndexAtX(e.getX());
-                int row = e.getY() / ordersTable.getRowHeight();
-
-                if (row < ordersTable.getRowCount() && row >= 0 && column == 6) {
-                    // Lấy toạ độ của ô được click
-                    Rectangle rect = ordersTable.getCellRect(row, column, false);
-
-                    // Tính toán vị trí tương đối trong ô
-                    int xInCell = e.getX() - rect.x;
-
-                    String orderId = ((String) ordersTable.getValueAt(row, 0)).substring(1); // Bỏ dấu # đầu tiên
-                    int orderIdValue = Integer.parseInt(orderId);
-
-                    // Kiểm tra là record đơn hàng hay chi tiết đơn hàng
-                    boolean isOrderDetail = row < tableModel.getRowCount() &&
-                            tableModel.getValueAt(row, 0) != null &&
-                            tableModel.getValueAt(row, 0).toString().contains("-");
-
-                    // Nếu là chi tiết đơn hàng, lấy ID đơn hàng chính
-                    if (isOrderDetail) {
-                        String[] parts = orderId.split("-");
-                        if (parts.length > 0) {
-                            orderIdValue = Integer.parseInt(parts[0]);
-                        }
-                    }
-
-                    // Nếu click gần phía trái (nút Xem)
-                    if (xInCell <= 65) {
-                        viewOrderDetail(orderIdValue);
-                    }
-                    // Nếu click gần phía phải (nút Cập nhật)
-                    else if (xInCell > 65) {
-                        updateOrderStatus(orderIdValue);
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting()) {
+                    int selectedRow = ordersTable.getSelectedRow();
+                    if (selectedRow >= 0) {
+                        String orderId = ((String) ordersTable.getValueAt(selectedRow, 0)).substring(1); // Bỏ dấu # đầu
+                                                                                                         // tiên
+                        selectedOrderId = Integer.parseInt(orderId);
+                        loadOrderDetails(selectedOrderId);
+                        updateStatusButton.setEnabled(true);
+                    } else {
+                        selectedOrderId = -1;
+                        clearDetailsTable();
+                        updateStatusButton.setEnabled(false);
                     }
                 }
             }
         });
 
-        JScrollPane scrollPane = new JScrollPane(ordersTable);
-        scrollPane.setBorder(BorderFactory.createEmptyBorder());
+        // Thêm SelectionListener cho bảng chi tiết
+        detailsTable.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
+            public void valueChanged(ListSelectionEvent e) {
+                if (!e.getValueIsAdjusting()) {
+                    int selectedRow = detailsTable.getSelectedRow();
+                    if (selectedRow >= 0) {
+                        String detailId = ((String) detailsTable.getValueAt(selectedRow, 0)).substring(1); // Bỏ dấu #
+                                                                                                           // đầu tiên
+                        selectedOrderDetailId = Integer.parseInt(detailId);
+                        updateStatusButton.setEnabled(true);
+                    } else {
+                        selectedOrderDetailId = -1;
+                        if (selectedOrderId == -1) {
+                            updateStatusButton.setEnabled(false);
+                        }
+                    }
+                }
+            }
+        });
+
+        splitPane.setTopComponent(ordersPanel);
+        splitPane.setBottomComponent(detailsPanel);
 
         add(toolPanel, BorderLayout.NORTH);
-        add(scrollPane, BorderLayout.CENTER);
+        add(splitPane, BorderLayout.CENTER);
 
-        // Load dữ liệu
+        // Load dữ liệu đơn hàng
         loadOrderData();
     }
 
     public void loadOrderData() {
         // Xóa dữ liệu cũ
-        tableModel.setRowCount(0);
+        ordersTableModel.setRowCount(0);
 
         try {
             List<Order> orders = orderRepository.getAllOrders();
-            populateOrderData(orders);
+            populateOrdersTable(orders);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(parentFrame,
                     "Không thể tải dữ liệu đơn hàng: " + e.getMessage(),
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
 
             // Nếu có lỗi, hiển thị thông báo trong bảng
-            tableModel.addRow(new Object[] { "", "", "", "", "", "Không thể tải dữ liệu", "" });
+            ordersTableModel.addRow(new Object[] { "", "", "", "", "", "Không thể tải dữ liệu" });
         }
     }
 
-    private void populateOrderData(List<Order> orders) {
+    private void populateOrdersTable(List<Order> orders) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
         DecimalFormat priceFormat = new DecimalFormat("#,### VND");
 
@@ -236,49 +305,125 @@ public class OrdersPanel extends JPanel {
                 System.err.println("Lỗi định dạng ngày đặt hàng: " + e.getMessage());
             }
 
-            // First add the order header row (showing total price)
-            tableModel.addRow(new Object[] {
+            // Thêm hàng vào bảng đơn hàng
+            ordersTableModel.addRow(new Object[] {
                     "#" + order.getId(),
-                    "Đơn hàng #" + order.getId(),
                     userName,
+                    user != null ? user.getEmail() : "N/A",
                     orderDate,
                     priceFormat.format(order.getTotalPrice()),
-                    order.getStatus(),
-                    ""
+                    order.getStatus()
             });
-
-            // Then add detailed rows for each domain in this order
-            List<OrderDetails> orderDetails = orderDetailsService.getOrderDetailsByOrderId(order.getId());
-            if (orderDetails != null && !orderDetails.isEmpty()) {
-                for (OrderDetails detail : orderDetails) {
-                    // Xử lý an toàn cho ngày mua
-                    String purchaseDate = "N/A";
-                    try {
-                        if (detail.getPurchaseDate() != null) {
-                            purchaseDate = dateFormat.format(java.sql.Timestamp.valueOf(detail.getPurchaseDate()));
-                        }
-                    } catch (Exception e) {
-                        // Nếu không thể định dạng ngày, giữ giá trị mặc định "N/A"
-                        System.err.println("Lỗi định dạng ngày mua: " + e.getMessage());
-                    }
-
-                    // Add individual domain details with their own prices
-                    tableModel.addRow(new Object[] {
-                            "#" + order.getId() + "-" + detail.getId(),
-                            detail.getFullDomainName(),
-                            "",
-                            purchaseDate,
-                            priceFormat.format(detail.getPrice()),
-                            detail.getStatus(),
-                            ""
-                    });
-                }
-            }
         }
 
         if (orders.isEmpty()) {
-            tableModel.addRow(new Object[] { "", "", "", "", "", "Không có đơn hàng", "" });
+            ordersTableModel.addRow(new Object[] { "", "", "", "", "", "Không có đơn hàng" });
         }
+    }
+
+    private void loadOrderDetails(int orderId) {
+        // Xóa dữ liệu cũ
+        detailsTableModel.setRowCount(0);
+
+        try {
+            List<OrderDetails> orderDetails = orderDetailsService.getOrderDetailsByOrderId(orderId);
+            populateDetailsTable(orderDetails);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(parentFrame,
+                    "Không thể tải dữ liệu chi tiết đơn hàng: " + e.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+
+            // Nếu có lỗi, hiển thị thông báo trong bảng
+            detailsTableModel.addRow(new Object[] { "", "", "", "", "Không thể tải dữ liệu" });
+        }
+    }
+
+    private void populateDetailsTable(List<OrderDetails> orderDetails) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+        DecimalFormat priceFormat = new DecimalFormat("#,### VND");
+        DecimalFormat discountFormat = new DecimalFormat("#.##%");
+
+        for (OrderDetails detail : orderDetails) {
+            // Xử lý an toàn cho ngày mua
+            String purchaseDate = "N/A";
+            try {
+                if (detail.getPurchaseDate() != null) {
+                    purchaseDate = dateFormat.format(java.sql.Timestamp.valueOf(detail.getPurchaseDate()));
+                }
+            } catch (Exception e) {
+                // Nếu không thể định dạng ngày, giữ giá trị mặc định "N/A"
+                System.err.println("Lỗi định dạng ngày mua: " + e.getMessage());
+            }
+
+            // Lấy thông tin về thời hạn thuê
+            String rentalInfo = "1 tháng";
+            int months = 1;
+            double discount = 0.0;
+            try {
+                if (detail.getRentalPeriodId() > 0) {
+                    model.RentalPeriod rentalPeriod = rentalPeriodRepository
+                            .getRentalPeriodById(detail.getRentalPeriodId());
+                    if (rentalPeriod != null) {
+                        discount = rentalPeriod.getDiscount();
+                        months = rentalPeriod.getMonths();
+
+                        // Hiển thị thông tin thời hạn và giảm giá
+                        if (discount > 0) {
+                            rentalInfo = months + " tháng (giảm " + discountFormat.format(discount) + ")";
+                        } else {
+                            rentalInfo = months + " tháng";
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi lấy thông tin thời hạn thuê: " + e.getMessage());
+            }
+
+            // Lấy giá gốc 1 tháng trực tiếp từ Domain thay vì tính toán
+            double oneMonthPrice = 0;
+            double totalPrice = 0;
+
+            try {
+                // Lấy Domain từ domainId
+                Domain domain = domainRepository.getDomainById(detail.getDomainId());
+                if (domain != null) {
+                    // Giá gốc 1 tháng lấy trực tiếp từ domain
+                    oneMonthPrice = domain.getPrice();
+
+                    // Tính tổng tiền dựa trên giá gốc, số tháng và giảm giá
+                    totalPrice = oneMonthPrice * months * (1 - discount);
+                } else {
+                    // Nếu không tìm thấy domain, sử dụng giá từ chi tiết đơn hàng
+                    totalPrice = detail.getPrice();
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi lấy thông tin domain: " + e.getMessage());
+                // Fallback: Nếu không lấy được từ Domain, sử dụng giá từ OrderDetails
+                totalPrice = detail.getPrice();
+                if (months > 0 && detail.getOriginalPrice() > 0) {
+                    oneMonthPrice = detail.getOriginalPrice() / months;
+                }
+            }
+
+            // Thêm hàng vào bảng chi tiết đơn hàng
+            detailsTableModel.addRow(new Object[] {
+                    "#" + detail.getId(),
+                    detail.getFullDomainName(),
+                    priceFormat.format(oneMonthPrice),
+                    rentalInfo,
+                    priceFormat.format(totalPrice),
+                    purchaseDate,
+                    detail.getStatus()
+            });
+        }
+
+        if (orderDetails.isEmpty()) {
+            detailsTableModel.addRow(new Object[] { "", "", "", "", "", "", "Không có chi tiết đơn hàng" });
+        }
+    }
+
+    private void clearDetailsTable() {
+        detailsTableModel.setRowCount(0);
     }
 
     private void filterOrders() {
@@ -290,7 +435,7 @@ public class OrdersPanel extends JPanel {
         }
 
         // Xóa dữ liệu cũ
-        tableModel.setRowCount(0);
+        ordersTableModel.setRowCount(0);
 
         try {
             List<Order> allOrders = orderRepository.getAllOrders();
@@ -298,7 +443,7 @@ public class OrdersPanel extends JPanel {
                     .filter(order -> selectedStatus.equals(order.getStatus()))
                     .collect(Collectors.toList());
 
-            populateOrderData(filteredOrders);
+            populateOrdersTable(filteredOrders);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(parentFrame,
                     "Lỗi khi lọc đơn hàng: " + e.getMessage(),
@@ -322,16 +467,17 @@ public class OrdersPanel extends JPanel {
             try (java.io.OutputStreamWriter writer = new java.io.OutputStreamWriter(
                     new java.io.FileOutputStream(fileToSave), "UTF-8")) {
                 // Ghi tiêu đề cột
-                for (int i = 0; i < tableModel.getColumnCount(); i++) {
-                    writer.write(tableModel.getColumnName(i) + (i == tableModel.getColumnCount() - 1 ? "\n" : ","));
+                for (int i = 0; i < ordersTableModel.getColumnCount(); i++) {
+                    writer.write(ordersTableModel.getColumnName(i)
+                            + (i == ordersTableModel.getColumnCount() - 1 ? "\n" : ","));
                 }
 
                 // Ghi dữ liệu từng hàng
-                for (int i = 0; i < tableModel.getRowCount(); i++) {
-                    for (int j = 0; j < tableModel.getColumnCount(); j++) {
-                        Object value = tableModel.getValueAt(i, j);
+                for (int i = 0; i < ordersTableModel.getRowCount(); i++) {
+                    for (int j = 0; j < ordersTableModel.getColumnCount(); j++) {
+                        Object value = ordersTableModel.getValueAt(i, j);
                         writer.write((value != null ? value.toString() : "") +
-                                (j == tableModel.getColumnCount() - 1 ? "\n" : ","));
+                                (j == ordersTableModel.getColumnCount() - 1 ? "\n" : ","));
                     }
                 }
 
@@ -346,57 +492,11 @@ public class OrdersPanel extends JPanel {
         }
     }
 
-    private void viewOrderDetail(int orderId) {
-        try {
-            Order order = orderRepository.getOrderById(orderId);
-            if (order != null) {
-                User user = userRepository.getUserById(order.getUserId());
-                List<OrderDetails> details = orderDetailsService.getOrderDetailsByOrderId(orderId);
-
-                // Create order details message
-                StringBuilder detailsMessage = new StringBuilder();
-                detailsMessage.append("Mã đơn hàng: #").append(order.getId()).append("\n");
-                detailsMessage.append("Khách hàng: ").append(user != null ? user.getEmail() : "N/A").append("\n");
-
-                // Xử lý an toàn cho ngày đặt hàng
-                String orderDateStr = "N/A";
-                try {
-                    if (order.getOrderDate() != null) {
-                        orderDateStr = new SimpleDateFormat("dd/MM/yyyy HH:mm").format(order.getOrderDate());
-                    }
-                } catch (Exception e) {
-                    System.err.println("Lỗi định dạng ngày đặt hàng: " + e.getMessage());
-                }
-                detailsMessage.append("Ngày đặt: ").append(orderDateStr).append("\n");
-
-                detailsMessage.append("Trạng thái: ").append(order.getStatus()).append("\n\n");
-
-                detailsMessage.append("Chi tiết tên miền:\n");
-                if (details != null && !details.isEmpty()) {
-                    for (OrderDetails detail : details) {
-                        detailsMessage.append("- ").append(detail.getFullDomainName())
-                                .append(": ").append(new DecimalFormat("#,### VND").format(detail.getPrice()))
-                                .append("\n");
-                    }
-                } else {
-                    detailsMessage.append("- ").append("Không có chi tiết tên miền").append("\n");
-                }
-
-                detailsMessage.append("\nTổng tiền: ")
-                        .append(new DecimalFormat("#,### VND").format(order.getTotalPrice()));
-
-                JOptionPane.showMessageDialog(parentFrame, detailsMessage.toString(),
-                        "Chi tiết đơn hàng #" + order.getId(),
-                        JOptionPane.INFORMATION_MESSAGE);
-            } else {
-                JOptionPane.showMessageDialog(parentFrame,
-                        "Không tìm thấy thông tin đơn hàng!",
-                        "Lỗi", JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(parentFrame,
-                    "Không thể tải thông tin đơn hàng: " + e.getMessage(),
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+    private void updateSelectedStatus() {
+        if (selectedOrderId != -1) {
+            updateOrderStatus(selectedOrderId);
+        } else if (selectedOrderDetailId != -1) {
+            updateOrderDetailStatus(selectedOrderDetailId);
         }
     }
 
@@ -425,6 +525,45 @@ public class OrdersPanel extends JPanel {
 
                         // Refresh data
                         loadOrderData();
+                    } else {
+                        JOptionPane.showMessageDialog(parentFrame,
+                                "Không thể cập nhật trạng thái!",
+                                "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(parentFrame,
+                    "Lỗi khi cập nhật trạng thái: " + e.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private void updateOrderDetailStatus(int detailId) {
+        try {
+            OrderDetails detail = orderDetailsRepository.getOrderDetailById(detailId);
+            if (detail != null) {
+                String[] statuses = { "Hoàn thành", "Đang xử lý", "Hủy" };
+
+                String selectedStatus = (String) JOptionPane.showInputDialog(parentFrame,
+                        "Chọn trạng thái mới cho chi tiết đơn hàng #" + detailId,
+                        "Cập nhật trạng thái",
+                        JOptionPane.QUESTION_MESSAGE,
+                        null,
+                        statuses,
+                        detail.getStatus());
+
+                if (selectedStatus != null && !selectedStatus.equals(detail.getStatus())) {
+                    // Sử dụng phương thức mới updateOrderDetailStatus
+                    boolean result = orderDetailsRepository.updateOrderDetailStatus(detailId, selectedStatus);
+
+                    if (result) {
+                        JOptionPane.showMessageDialog(parentFrame,
+                                "Cập nhật trạng thái thành công!",
+                                "Thông báo", JOptionPane.INFORMATION_MESSAGE);
+
+                        // Refresh data
+                        loadOrderDetails(selectedOrderId);
                     } else {
                         JOptionPane.showMessageDialog(parentFrame,
                                 "Không thể cập nhật trạng thái!",

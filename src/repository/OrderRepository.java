@@ -396,28 +396,79 @@ public class OrderRepository {
 
             // Cập nhật trạng thái tên miền tương ứng nếu đơn hàng đã hoàn thành
             if (newStatus.equalsIgnoreCase("Hoàn thành")) {
-                // Lấy thông tin đơn hàng để biết thời gian hết hạn
-                String getOrderSQL = "SELECT domain_id, expiry_date FROM orders WHERE id = ?";
-                try (PreparedStatement stmt = connection.prepareStatement(getOrderSQL)) {
-                    stmt.setInt(1, orderId);
-                    try (ResultSet rs = stmt.executeQuery()) {
-                        if (rs.next()) {
-                            int domainId = rs.getInt("domain_id");
-                            java.sql.Timestamp expiryDate = rs.getTimestamp("expiry_date");
-                            
-                            // Cập nhật cả trạng thái và ngày hết hạn của tên miền
-                            String updateDomainSQL = "UPDATE domains SET status = ?, expiry_date = ? WHERE id = ?";
-                            try (PreparedStatement updateStmt = connection.prepareStatement(updateDomainSQL)) {
-                                updateStmt.setString(1, "Đã thuê");
-                                updateStmt.setTimestamp(2, expiryDate);
-                                updateStmt.setInt(3, domainId);
-                                updateStmt.executeUpdate();
-                            }
-                            
-                            // Cập nhật trạng thái và ngày hết hạn cho các tên miền trong order_details
-                            DomainRepository domainRepo = new DomainRepository(connection);
-                            domainRepo.updateDomainStatusByOrderIdWithExpiryDate(orderId, "Đã thuê", expiryDate);
+                // Lấy thông tin chi tiết đơn hàng
+                OrderDetailsRepository orderDetailsRepo = new OrderDetailsRepository(connection);
+                List<model.OrderDetails> orderDetails = orderDetailsRepo.findByOrderId(orderId);
+
+                RentalPeriodRepository rentalPeriodRepo = new RentalPeriodRepository(connection);
+                DomainRepository domainRepo = new DomainRepository(connection);
+
+                java.util.Date currentDate = new java.util.Date();
+
+                // Cập nhật từng tên miền trong đơn hàng với thời hạn thuê tương ứng
+                for (model.OrderDetails detail : orderDetails) {
+                    // Lấy thông tin về rental period
+                    int rentalPeriodId = detail.getRentalPeriodId();
+                    int months = 1; // Mặc định 1 tháng
+
+                    try {
+                        model.RentalPeriod rentalPeriod = rentalPeriodRepo.getRentalPeriodById(rentalPeriodId);
+                        if (rentalPeriod != null) {
+                            months = rentalPeriod.getMonths();
                         }
+                    } catch (Exception ex) {
+                        System.err.println("Lỗi lấy thông tin rental period: " + ex.getMessage());
+                    }
+
+                    // Tính ngày hết hạn dựa trên ngày hiện tại và số tháng thuê
+                    java.util.Calendar calendar = java.util.Calendar.getInstance();
+                    calendar.setTime(currentDate);
+                    calendar.add(java.util.Calendar.MONTH, months);
+                    java.sql.Timestamp expiryDate = new java.sql.Timestamp(calendar.getTimeInMillis());
+
+                    // Cập nhật trạng thái và ngày hết hạn cho từng domain
+                    try {
+                        String updateDomainSQL = "UPDATE domains SET status = ?, expiry_date = ? WHERE id = ?";
+                        try (PreparedStatement updateStmt = connection.prepareStatement(updateDomainSQL)) {
+                            updateStmt.setString(1, "Đã thuê");
+                            updateStmt.setTimestamp(2, expiryDate);
+                            updateStmt.setInt(3, detail.getDomainId());
+                            updateStmt.executeUpdate();
+                        }
+                    } catch (SQLException e) {
+                        System.err.println("Error updating domain status: " + e.getMessage());
+                    }
+                }
+
+                // Cập nhật thời gian hết hạn cho đơn hàng chính
+                // (Lấy từ domain chính - thường là domain trong orders table)
+                Order order = getOrderById(orderId);
+                if (order != null) {
+                    int mainDomainId = order.getDomainId();
+                    int rentalPeriodId = order.getRentalPeriodId();
+                    int months = 1;
+
+                    try {
+                        model.RentalPeriod rentalPeriod = rentalPeriodRepo.getRentalPeriodById(rentalPeriodId);
+                        if (rentalPeriod != null) {
+                            months = rentalPeriod.getMonths();
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("Lỗi lấy thông tin rental period: " + ex.getMessage());
+                    }
+
+                    // Tính ngày hết hạn cho domain chính
+                    java.util.Calendar calendar = java.util.Calendar.getInstance();
+                    calendar.setTime(currentDate);
+                    calendar.add(java.util.Calendar.MONTH, months);
+                    java.sql.Timestamp expiryDate = new java.sql.Timestamp(calendar.getTimeInMillis());
+
+                    // Cập nhật thời gian hết hạn cho đơn hàng
+                    String updateOrderExpirySQL = "UPDATE orders SET expiry_date = ? WHERE id = ?";
+                    try (PreparedStatement updateStmt = connection.prepareStatement(updateOrderExpirySQL)) {
+                        updateStmt.setTimestamp(1, expiryDate);
+                        updateStmt.setInt(2, orderId);
+                        updateStmt.executeUpdate();
                     }
                 }
             }
@@ -440,5 +491,62 @@ public class OrderRepository {
                 System.err.println("Error setting auto commit: " + e.getMessage());
             }
         }
+    }
+
+    /**
+     * Lấy tất cả đơn hàng cho một tên miền cụ thể
+     * 
+     * @param domainId ID của tên miền cần lấy đơn hàng
+     * @return Danh sách các đơn hàng liên quan đến tên miền
+     */
+    public List<Order> getOrdersByDomainId(int domainId) {
+        List<Order> orders = new ArrayList<>();
+
+        try {
+            String sql = "SELECT * FROM orders WHERE domain_id = ? ORDER BY created_at DESC";
+            try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+                stmt.setInt(1, domainId);
+
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        Order order = new Order();
+                        order.setId(rs.getInt("id"));
+                        order.setUserId(rs.getInt("buyer_id"));
+                        order.setDomainId(rs.getInt("domain_id"));
+                        order.setTotalPrice(rs.getDouble("total_price"));
+                        order.setOrderDate(rs.getTimestamp("created_at"));
+                        order.setStatus(rs.getString("status"));
+
+                        // Thêm rental period id nếu có trong schema
+                        if (hasColumn(rs, "rental_period_id")) {
+                            order.setRentalPeriodId(rs.getInt("rental_period_id"));
+                        }
+
+                        // Thêm ngày hết hạn nếu có trong schema
+                        if (hasColumn(rs, "expiry_date")) {
+                            Timestamp expiryDate = rs.getTimestamp("expiry_date");
+                            if (expiryDate != null) {
+                                order.setExpiryDate(expiryDate.toLocalDateTime());
+                            }
+                        }
+
+                        // Thêm ngày tạo nếu có trong schema
+                        if (hasColumn(rs, "created_at")) {
+                            Timestamp createdAt = rs.getTimestamp("created_at");
+                            if (createdAt != null) {
+                                order.setCreatedAt(createdAt.toLocalDateTime());
+                            }
+                        }
+
+                        orders.add(order);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting orders by domain id: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return orders;
     }
 }

@@ -280,9 +280,26 @@ public class DashboardPanel extends JPanel {
             detailsMessage.append("CÁC TÊN MIỀN:\n");
             if (orderDetails != null && !orderDetails.isEmpty()) {
                 for (OrderDetails detail : orderDetails) {
+                    // Hiển thị gói thuê và ngày hết hạn cụ thể cho từng tên miền
+                    String rentalInfo = "";
+                    try {
+                        RentalPeriod detailPeriod = rentalPeriodRepository
+                                .getRentalPeriodById(detail.getRentalPeriodId());
+                        if (detailPeriod != null) {
+                            rentalInfo = " - " + detailPeriod.getDescription();
+                        }
+                        if (detail.getExpiryDate() != null) {
+                            rentalInfo += " (hết hạn: " + new SimpleDateFormat("dd/MM/yyyy").format(
+                                    Date.from(detail.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant())) + ")";
+                        }
+                    } catch (Exception ex) {
+                        // Xử lý khi không có thông tin gói thuê
+                        System.err.println("Không lấy được thông tin gói thuê: " + ex.getMessage());
+                    }
+
                     detailsMessage.append("- ").append(detail.getFullDomainName())
                             .append(" (").append(new DecimalFormat("#,### VND").format(detail.getPrice()))
-                            .append(")\n");
+                            .append(")").append(rentalInfo).append("\n");
                 }
             } else {
                 detailsMessage.append("Không có thông tin chi tiết về tên miền\n");
@@ -310,16 +327,45 @@ public class DashboardPanel extends JPanel {
         try {
             // Lấy các tên miền sắp hết hạn trong 30 ngày tới, giới hạn 5 bản ghi
             List<Domain> expiringDomains = domainService.getExpiringDomains(30, 5);
-            Object[][] domainData = new Object[expiringDomains.size()][5];
+            Object[][] domainData = new Object[expiringDomains.size()][6]; // Thêm một cột cho thời gian thuê
 
             SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
 
             for (int i = 0; i < expiringDomains.size(); i++) {
                 Domain domain = expiringDomains.get(i);
 
-                // Tìm order gần nhất liên quan đến domain này để lấy thông tin người mua
-                Order latestOrder = orderRepository.findLatestOrderByDomainId(domain.getId());
-                User owner = latestOrder != null ? userRepository.getUserById(latestOrder.getUserId()) : null;
+                // Lấy thông tin chi tiết đơn hàng liên quan đến tên miền này
+                User owner = null;
+                String rentalPeriodInfo = "N/A";
+
+                try {
+                    // Lấy tất cả order details có chứa domain này
+                    List<OrderDetails> details = orderDetailsService.getOrderDetailsByDomainId(domain.getId());
+                    if (!details.isEmpty()) {
+                        // Lấy order detail mới nhất (thường là mới nhất theo thời gian)
+                        OrderDetails latestDetail = details.get(0);
+
+                        // Lấy thông tin kỳ hạn thuê
+                        RentalPeriod rentalPeriod = rentalPeriodRepository
+                                .getRentalPeriodById(latestDetail.getRentalPeriodId());
+                        if (rentalPeriod != null) {
+                            rentalPeriodInfo = rentalPeriod.getDescription();
+                        }
+
+                        // Lấy order id từ order detail
+                        int orderId = latestDetail.getOrderId();
+                        // Lấy order từ order id
+                        Order order = orderRepository.getOrderById(orderId);
+                        if (order != null) {
+                            // Lấy thông tin người dùng từ order
+                            owner = userRepository.getUserById(order.getUserId());
+                        }
+                    }
+                } catch (Exception e) {
+                    // Nếu xảy ra lỗi, tiếp tục thử cách cũ
+                    Order latestOrder = orderRepository.findLatestOrderByDomainId(domain.getId());
+                    owner = latestOrder != null ? userRepository.getUserById(latestOrder.getUserId()) : null;
+                }
 
                 // Tính số ngày còn lại - chuyển đổi LocalDateTime sang Date để tính toán
                 long daysLeft = 0;
@@ -334,17 +380,18 @@ public class DashboardPanel extends JPanel {
                 domainData[i][2] = domain.getExpiryDate() != null ? dateFormat
                         .format(Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant())) : "N/A";
                 domainData[i][3] = owner != null ? owner.getEmail() : "N/A";
-                domainData[i][4] = daysLeft + " ngày";
+                domainData[i][4] = rentalPeriodInfo; // Thêm thông tin kỳ hạn thuê
+                domainData[i][5] = daysLeft + " ngày";
             }
 
             expiringDomainsPanel = createModernTablePanel(
                     "Tên miền sắp hết hạn",
-                    new String[] { "STT", "Tên miền", "Ngày hết hạn", "Người sở hữu", "Tình trạng" },
+                    new String[] { "STT", "Tên miền", "Ngày hết hạn", "Người sở hữu", "Kỳ hạn thuê", "Tình trạng" },
                     domainData);
         } catch (Exception e) {
             expiringDomainsPanel = createModernTablePanel(
                     "Tên miền sắp hết hạn (Lỗi tải dữ liệu)",
-                    new String[] { "STT", "Tên miền", "Ngày hết hạn", "Người sở hữu", "Tình trạng" },
+                    new String[] { "STT", "Tên miền", "Ngày hết hạn", "Người sở hữu", "Kỳ hạn thuê", "Tình trạng" },
                     new Object[][] {});
         }
         return expiringDomainsPanel;
@@ -566,7 +613,10 @@ public class DashboardPanel extends JPanel {
 
         // Renderer cho cột tình trạng
         if (title.contains("Tên miền")) {
-            table.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
+            // Điều chỉnh index của cột tình trạng để phù hợp với số cột mới
+            int statusColumnIndex = columns.length - 1; // Cột cuối cùng là tình trạng
+
+            table.getColumnModel().getColumn(statusColumnIndex).setCellRenderer(new DefaultTableCellRenderer() {
                 @Override
                 public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected,
                         boolean hasFocus, int row, int column) {
@@ -589,6 +639,23 @@ public class DashboardPanel extends JPanel {
                     return c;
                 }
             });
+
+            // Định dạng cột kỳ hạn thuê
+            int rentalPeriodColumnIndex = 4; // Cột thứ 5 (index 4) là kỳ hạn thuê
+            if (columns.length > rentalPeriodColumnIndex) {
+                table.getColumnModel().getColumn(rentalPeriodColumnIndex)
+                        .setCellRenderer(new DefaultTableCellRenderer() {
+                            @Override
+                            public Component getTableCellRendererComponent(JTable table, Object value,
+                                    boolean isSelected,
+                                    boolean hasFocus, int row, int column) {
+                                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus,
+                                        row, column);
+                                setHorizontalAlignment(JLabel.CENTER);
+                                return c;
+                            }
+                        });
+            }
         }
 
         JScrollPane scrollPane = new JScrollPane(table);

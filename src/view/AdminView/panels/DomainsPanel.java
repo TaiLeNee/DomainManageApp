@@ -10,23 +10,32 @@ import java.awt.event.MouseEvent;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
 import model.Domain;
+import model.Order;
 import repository.DomainRepository;
+import repository.OrderRepository;
+import repository.RentalPeriodRepository;
+import model.RentalPeriod;
 
 public class DomainsPanel extends JPanel {
     private static final Color BG_COLOR = new Color(245, 245, 245);
     private static final Color PRIMARY_COLOR = new Color(0, 102, 102);
     private static final Color ACCENT_COLOR = new Color(255, 153, 0);
     private DomainRepository domainRepository;
+    private OrderRepository orderRepository;
+    private RentalPeriodRepository rentalPeriodRepository;
     private JTable domainsTable;
     private DefaultTableModel tableModel;
     private JFrame parentFrame;
 
     public DomainsPanel(DomainRepository domainRepository, JFrame parentFrame) {
         this.domainRepository = domainRepository;
+        this.orderRepository = new OrderRepository();
+        this.rentalPeriodRepository = new RentalPeriodRepository();
         this.parentFrame = parentFrame;
         setLayout(new BorderLayout());
         setBackground(BG_COLOR);
@@ -192,31 +201,85 @@ public class DomainsPanel extends JPanel {
             SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
             DecimalFormat priceFormat = new DecimalFormat("#,### VND");
 
+            // Ngày hiện tại - giả định là ngày hiện tại của hệ thống
+            Date currentDate = new Date();
+
             for (Domain domain : domains) {
                 // Chuỗi thông tin thời gian
                 String timeInfo = "";
-                
+
                 // Nếu domain đã được thuê và có ngày hết hạn
-                if ("Đã thuê".equals(domain.getStatus()) && domain.getExpiryDate() != null) {
+                if ("Đã thuê".equals(domain.getStatus())) {
                     // Lấy thông tin đơn hàng mới nhất của tên miền
                     try {
-                        // Ngày hiện tại là ngày thuê, ngày hết hạn lấy từ domain
-                        Date currentDate = new Date();
-                        Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
-                        
-                        // Định dạng để hiển thị thời gian
-                        timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
+                        // Lấy thông tin đơn hàng gần nhất
+                        List<Order> domainOrders = orderRepository.getOrdersByDomainId(domain.getId());
+                        Date purchaseDate = currentDate; // Mặc định sử dụng ngày hiện tại nếu không có thông tin
+
+                        if (!domainOrders.isEmpty()) {
+                            // Tìm đơn hàng mới nhất đã hoàn thành
+                            Order latestOrder = domainOrders.stream()
+                                    .filter(order -> "Hoàn thành".equals(order.getStatus()))
+                                    .sorted((o1, o2) -> o2.getOrderDate().compareTo(o1.getOrderDate()))
+                                    .findFirst()
+                                    .orElse(null);
+
+                            if (latestOrder != null && latestOrder.getOrderDate() != null) {
+                                purchaseDate = latestOrder.getOrderDate();
+
+                                // Lấy thông tin thời hạn thuê từ rental period
+                                int rentalPeriodId = latestOrder.getRentalPeriodId();
+                                int months = 1; // Mặc định 1 tháng
+
+                                // Lấy số tháng từ rental period
+                                try {
+                                    RentalPeriod rentalPeriod = rentalPeriodRepository
+                                            .getRentalPeriodById(rentalPeriodId);
+                                    if (rentalPeriod != null) {
+                                        months = rentalPeriod.getMonths();
+                                    }
+                                } catch (Exception ex) {
+                                    System.err.println("Lỗi lấy thông tin thời hạn thuê: " + ex.getMessage());
+                                }
+
+                                // Tính ngày hết hạn dựa trên ngày mua và số tháng thuê
+                                Calendar calendar = Calendar.getInstance();
+                                calendar.setTime(purchaseDate);
+                                calendar.add(Calendar.MONTH, months);
+                                Date expiryDate = calendar.getTime();
+
+                                // Định dạng để hiển thị thời gian
+                                timeInfo = dateFormat.format(purchaseDate) + " - " + dateFormat.format(expiryDate);
+                            } else if (domain.getExpiryDate() != null) {
+                                // Ngày hết hạn từ domain
+                                Date expiryDate = Date
+                                        .from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
+
+                                // Ngày mua là ngày hiện tại
+                                timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
+                            }
+                        } else if (domain.getExpiryDate() != null) {
+                            // Ngày hết hạn từ domain
+                            Date expiryDate = Date
+                                    .from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
+
+                            // Ngày mua là ngày hiện tại
+                            timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
+                        }
                     } catch (Exception ex) {
-                        // Nếu có lỗi khi lấy thông tin đơn hàng, chỉ hiển thị ngày hết hạn
+                        // Nếu có lỗi khi lấy thông tin đơn hàng, nhưng có ngày hết hạn trong domain
                         if (domain.getExpiryDate() != null) {
-                            Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
-                            timeInfo = "Đến: " + dateFormat.format(expiryDate);
+                            Date expiryDate = Date
+                                    .from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
+
+                            // Hiển thị từ ngày hiện tại đến ngày hết hạn
+                            timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
                         }
                     }
                 } else if (domain.getExpiryDate() != null) {
                     // Nếu có ngày hết hạn nhưng không phải trạng thái đã thuê
                     Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
-                    timeInfo = "Hết hạn: " + dateFormat.format(expiryDate);
+                    timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
                 }
 
                 // Định dạng giá
@@ -236,9 +299,7 @@ public class DomainsPanel extends JPanel {
             JOptionPane.showMessageDialog(parentFrame,
                     "Không thể tải dữ liệu tên miền: " + e.getMessage(),
                     "Lỗi", JOptionPane.ERROR_MESSAGE);
-
-            // Nếu có lỗi, hiển thị thông báo trong bảng
-            tableModel.addRow(new Object[] { "", "", "", "", "Không thể tải dữ liệu", "", "" });
+            e.printStackTrace();
         }
     }
 
@@ -251,31 +312,85 @@ public class DomainsPanel extends JPanel {
             SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
             DecimalFormat priceFormat = new DecimalFormat("#,### VND");
 
+            // Ngày hiện tại - giả định là ngày hiện tại của hệ thống
+            Date currentDate = new Date();
+
             for (Domain domain : domains) {
                 // Chuỗi thông tin thời gian
                 String timeInfo = "";
-                
+
                 // Nếu domain đã được thuê và có ngày hết hạn
-                if ("Đã thuê".equals(domain.getStatus()) && domain.getExpiryDate() != null) {
+                if ("Đã thuê".equals(domain.getStatus())) {
                     // Lấy thông tin đơn hàng mới nhất của tên miền
                     try {
-                        // Ngày hiện tại là ngày thuê, ngày hết hạn lấy từ domain
-                        Date currentDate = new Date();
-                        Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
-                        
-                        // Định dạng để hiển thị thời gian
-                        timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
+                        // Lấy thông tin đơn hàng gần nhất
+                        List<Order> domainOrders = orderRepository.getOrdersByDomainId(domain.getId());
+                        Date purchaseDate = currentDate; // Mặc định sử dụng ngày hiện tại nếu không có thông tin
+
+                        if (!domainOrders.isEmpty()) {
+                            // Tìm đơn hàng mới nhất đã hoàn thành
+                            Order latestOrder = domainOrders.stream()
+                                    .filter(order -> "Hoàn thành".equals(order.getStatus()))
+                                    .sorted((o1, o2) -> o2.getOrderDate().compareTo(o1.getOrderDate()))
+                                    .findFirst()
+                                    .orElse(null);
+
+                            if (latestOrder != null && latestOrder.getOrderDate() != null) {
+                                purchaseDate = latestOrder.getOrderDate();
+
+                                // Lấy thông tin thời hạn thuê từ rental period
+                                int rentalPeriodId = latestOrder.getRentalPeriodId();
+                                int months = 1; // Mặc định 1 tháng
+
+                                // Lấy số tháng từ rental period
+                                try {
+                                    RentalPeriod rentalPeriod = rentalPeriodRepository
+                                            .getRentalPeriodById(rentalPeriodId);
+                                    if (rentalPeriod != null) {
+                                        months = rentalPeriod.getMonths();
+                                    }
+                                } catch (Exception ex) {
+                                    System.err.println("Lỗi lấy thông tin thời hạn thuê: " + ex.getMessage());
+                                }
+
+                                // Tính ngày hết hạn dựa trên ngày mua và số tháng thuê
+                                Calendar calendar = Calendar.getInstance();
+                                calendar.setTime(purchaseDate);
+                                calendar.add(Calendar.MONTH, months);
+                                Date expiryDate = calendar.getTime();
+
+                                // Định dạng để hiển thị thời gian
+                                timeInfo = dateFormat.format(purchaseDate) + " - " + dateFormat.format(expiryDate);
+                            } else if (domain.getExpiryDate() != null) {
+                                // Ngày hết hạn từ domain
+                                Date expiryDate = Date
+                                        .from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
+
+                                // Ngày mua là ngày hiện tại
+                                timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
+                            }
+                        } else if (domain.getExpiryDate() != null) {
+                            // Ngày hết hạn từ domain
+                            Date expiryDate = Date
+                                    .from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
+
+                            // Ngày mua là ngày hiện tại
+                            timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
+                        }
                     } catch (Exception ex) {
-                        // Nếu có lỗi khi lấy thông tin đơn hàng, chỉ hiển thị ngày hết hạn
+                        // Nếu có lỗi khi lấy thông tin đơn hàng, nhưng có ngày hết hạn trong domain
                         if (domain.getExpiryDate() != null) {
-                            Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
-                            timeInfo = "Đến: " + dateFormat.format(expiryDate);
+                            Date expiryDate = Date
+                                    .from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
+
+                            // Hiển thị từ ngày hiện tại đến ngày hết hạn
+                            timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
                         }
                     }
                 } else if (domain.getExpiryDate() != null) {
                     // Nếu có ngày hết hạn nhưng không phải trạng thái đã thuê
                     Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
-                    timeInfo = "Hết hạn: " + dateFormat.format(expiryDate);
+                    timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
                 }
 
                 // Định dạng giá
