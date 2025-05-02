@@ -5,6 +5,8 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.geom.RoundRectangle2D;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
@@ -14,13 +16,17 @@ import java.util.List;
 
 import model.Domain;
 import model.Order;
+import model.OrderDetails;
+import model.RentalPeriod;
 import model.Transaction;
 import model.User;
 import repository.DomainRepository;
 import repository.OrderRepository;
+import repository.RentalPeriodRepository;
 import repository.TransactionRepository;
 import repository.UserRepository;
 import service.DomainService;
+import service.OrderDetailsService;
 
 public class DashboardPanel extends JPanel {
     // Màu sắc hiện đại
@@ -47,6 +53,8 @@ public class DashboardPanel extends JPanel {
     private UserRepository userRepository;
     private TransactionRepository transactionRepository;
     private DomainService domainService;
+    private OrderDetailsService orderDetailsService;
+    private RentalPeriodRepository rentalPeriodRepository;
 
     public DashboardPanel(DomainRepository domainRepository, OrderRepository orderRepository,
             UserRepository userRepository, TransactionRepository transactionRepository,
@@ -56,6 +64,8 @@ public class DashboardPanel extends JPanel {
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
         this.domainService = domainService;
+        this.orderDetailsService = new OrderDetailsService();
+        this.rentalPeriodRepository = new RentalPeriodRepository();
 
         setLayout(new BorderLayout(0, 0));
         setBackground(BG_COLOR);
@@ -99,11 +109,9 @@ public class DashboardPanel extends JPanel {
             List<Order> orders = orderRepository.getAllOrders();
             totalOrders = orders.size();
 
-            // Tính tổng doanh thu - sử dụng field total thay vì amount
-            List<Transaction> transactions = transactionRepository.getAllTransactions();
-            for (Transaction transaction : transactions) {
-                System.out.println("Transaction ID: " + transaction.getId() + ", Total: " + transaction.getTotal());
-                totalRevenue += transaction.getTotal();
+            // Tính tổng doanh thu - sử dụng totalPrice từ orders
+            for (Order order : orders) {
+                totalRevenue += order.getTotalPrice();
             }
             System.out.println("Doanh thu: " + totalRevenue);
         } catch (Exception e) {
@@ -189,25 +197,112 @@ public class DashboardPanel extends JPanel {
                 User user = userRepository.getUserById(order.getUserId());
                 Domain domain = domainRepository.getDomainById(order.getDomainId());
 
-                orderData[i][0] = "#" + order.getId();
-                orderData[i][1] = domain != null ? domain.getName() + domain.getExtension() : "N/A";
+                // Thay ID bằng số thứ tự (i+1)
+                orderData[i][0] = String.valueOf(i + 1);
+                orderData[i][1] = "Đơn hàng #" + order.getId();
                 orderData[i][2] = user != null ? user.getEmail() : "N/A";
                 orderData[i][3] = currencyFormat.format(order.getTotalPrice());
                 orderData[i][4] = order.getStatus();
                 orderData[i][5] = dateFormat.format(order.getOrderDate());
             }
 
-            recentOrdersPanel = createModernTablePanel(
+            JPanel panel = createModernTablePanel(
                     "Đơn hàng gần đây",
-                    new String[] { "ID", "Tên miền", "Người mua", "Giá", "Trạng thái", "Ngày" },
+                    new String[] { "STT", "Tên đơn hàng", "Người mua", "Giá", "Trạng thái", "Ngày" },
                     orderData);
+
+            // Tìm JTable trong panel để thêm sự kiện double click
+            JTable table = findTable(panel);
+            if (table != null && !recentOrders.isEmpty()) {
+                table.addMouseListener(new MouseAdapter() {
+                    @Override
+                    public void mouseClicked(MouseEvent e) {
+                        if (e.getClickCount() == 2) {
+                            int row = table.getSelectedRow();
+                            if (row >= 0 && row < recentOrders.size()) {
+                                Order order = recentOrders.get(row);
+                                showOrderDetails(order);
+                            }
+                        }
+                    }
+                });
+            }
+
+            recentOrdersPanel = panel;
         } catch (Exception e) {
             recentOrdersPanel = createModernTablePanel(
                     "Đơn hàng gần đây (Lỗi tải dữ liệu)",
-                    new String[] { "ID", "Tên miền", "Người mua", "Giá", "Trạng thái", "Ngày" },
+                    new String[] { "STT", "Tên đơn hàng", "Người mua", "Giá", "Trạng thái", "Ngày" },
                     new Object[][] {});
         }
         return recentOrdersPanel;
+    }
+
+    // Phương thức để tìm JTable trong một panel phức tạp
+    private JTable findTable(JPanel panel) {
+        for (Component comp : panel.getComponents()) {
+            if (comp instanceof JTable) {
+                return (JTable) comp;
+            } else if (comp instanceof JScrollPane) {
+                JScrollPane scrollPane = (JScrollPane) comp;
+                if (scrollPane.getViewport().getView() instanceof JTable) {
+                    return (JTable) scrollPane.getViewport().getView();
+                }
+            } else if (comp instanceof JPanel) {
+                JTable table = findTable((JPanel) comp);
+                if (table != null) {
+                    return table;
+                }
+            }
+        }
+        return null;
+    }
+
+    // Hiển thị chi tiết đơn hàng
+    private void showOrderDetails(Order order) {
+        try {
+            // Lấy thông tin chi tiết đơn hàng
+            List<OrderDetails> orderDetails = orderDetailsService.getOrderDetailsByOrderId(order.getId());
+            User user = userRepository.getUserById(order.getUserId());
+            RentalPeriod rentalPeriod = rentalPeriodRepository.getRentalPeriodById(order.getRentalPeriodId());
+
+            // Tạo thông báo chi tiết
+            StringBuilder detailsMessage = new StringBuilder();
+            detailsMessage.append("CHI TIẾT ĐƠN HÀNG #").append(order.getId()).append("\n\n");
+            detailsMessage.append("Khách hàng: ")
+                    .append(user != null ? user.getFullName() + " (" + user.getEmail() + ")" : "N/A").append("\n");
+            detailsMessage.append("Ngày đặt: ")
+                    .append(new SimpleDateFormat("dd/MM/yyyy HH:mm").format(order.getOrderDate())).append("\n");
+            detailsMessage.append("Trạng thái: ").append(order.getStatus()).append("\n");
+            detailsMessage.append("Gói thuê: ").append(rentalPeriod != null ? rentalPeriod.getDescription() : "N/A")
+                    .append("\n\n");
+
+            detailsMessage.append("CÁC TÊN MIỀN:\n");
+            if (orderDetails != null && !orderDetails.isEmpty()) {
+                for (OrderDetails detail : orderDetails) {
+                    detailsMessage.append("- ").append(detail.getFullDomainName())
+                            .append(" (").append(new DecimalFormat("#,### VND").format(detail.getPrice()))
+                            .append(")\n");
+                }
+            } else {
+                detailsMessage.append("Không có thông tin chi tiết về tên miền\n");
+            }
+
+            detailsMessage.append("\nTổng tiền: ").append(new DecimalFormat("#,### VND").format(order.getTotalPrice()));
+
+            // Hiển thị dialog
+            JOptionPane.showMessageDialog(
+                    this,
+                    detailsMessage.toString(),
+                    "Chi tiết đơn hàng #" + order.getId(),
+                    JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Không thể tải chi tiết đơn hàng: " + e.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     private JPanel createExpiringDomainsPanel() {
@@ -233,7 +328,8 @@ public class DashboardPanel extends JPanel {
                     daysLeft = (expiryDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24);
                 }
 
-                domainData[i][0] = domain.getId();
+                // Thay ID bằng số thứ tự (i+1)
+                domainData[i][0] = String.valueOf(i + 1);
                 domainData[i][1] = domain.getName() + domain.getExtension();
                 domainData[i][2] = domain.getExpiryDate() != null ? dateFormat
                         .format(Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant())) : "N/A";
@@ -243,12 +339,12 @@ public class DashboardPanel extends JPanel {
 
             expiringDomainsPanel = createModernTablePanel(
                     "Tên miền sắp hết hạn",
-                    new String[] { "ID", "Tên miền", "Ngày hết hạn", "Người sở hữu", "Tình trạng" },
+                    new String[] { "STT", "Tên miền", "Ngày hết hạn", "Người sở hữu", "Tình trạng" },
                     domainData);
         } catch (Exception e) {
             expiringDomainsPanel = createModernTablePanel(
                     "Tên miền sắp hết hạn (Lỗi tải dữ liệu)",
-                    new String[] { "ID", "Tên miền", "Ngày hết hạn", "Người sở hữu", "Tình trạng" },
+                    new String[] { "STT", "Tên miền", "Ngày hết hạn", "Người sở hữu", "Tình trạng" },
                     new Object[][] {});
         }
         return expiringDomainsPanel;

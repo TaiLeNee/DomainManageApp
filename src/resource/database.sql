@@ -31,7 +31,7 @@ CREATE TABLE domains (
     name VARCHAR(100) NOT NULL,
     extension VARCHAR(20) NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
-    status VARCHAR(20) NOT NULL, -- Available, Rented, Reserved
+    status NVARCHAR(20) NOT NULL, 
     expiry_date DATETIME NULL,
     CONSTRAINT UQ_domain_name_extension UNIQUE (name, extension)
 );
@@ -62,13 +62,28 @@ CREATE TABLE orders (
     buyer_id INT NOT NULL,
     domain_id INT NOT NULL,
     rental_period_id INT NOT NULL,
-    status VARCHAR(20) NOT NULL, -- Pending, Approved, Completed, Cancelled
+    status NVARCHAR(20) NOT NULL, 
     created_at DATETIME DEFAULT GETDATE(),
     expiry_date DATETIME NOT NULL,
     total_price DECIMAL(10, 2) NOT NULL,
     FOREIGN KEY (buyer_id) REFERENCES users(id),
     FOREIGN KEY (domain_id) REFERENCES domains(id),
     FOREIGN KEY (rental_period_id) REFERENCES rental_periods(id)
+);
+GO
+
+-- Bảng order_details - Lưu trữ giá riêng của từng tên miền trong đơn hàng
+CREATE TABLE order_details (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    order_id INT NOT NULL,
+    domain_id INT NOT NULL,
+    domain_name VARCHAR(100) NOT NULL,
+    domain_extension VARCHAR(20) NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    purchase_date DATETIME DEFAULT GETDATE(),
+    status NVARCHAR(20) NOT NULL,
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (domain_id) REFERENCES domains(id)
 );
 GO
 
@@ -101,19 +116,7 @@ CREATE TABLE cart (
 INSERT INTO users (fullname, username, password, email, role)
 VALUES
     (N'Lê Công Tài', '1', '1', 'admin@domain.com', 'admin'),
-    (N'Đặng Phan Duy', 'admin2', 'admin2@', 'admin2@domain.com', 'admin'),
-    (N'Trần Minh Đại', 'admin3', 'admin3@', 'admin3@domain.com', 'admin'),
-    (N'Nguyễn Văn A', 'user1', 'user1@', 'user1@domain.com', 'user');
-
--- Thêm domain
-INSERT INTO domains (name, extension, price, status)
-VALUES
-    ('example', '.com', 200000, 'Available'),
-    ('mywebsite', '.com', 250000, 'Available'),
-    ('company', '.net', 180000, 'Available'),
-    ('blog', '.org', 150000, 'Available'),
-    ('online', '.store', 300000, 'Available');
-GO
+    (N'Nguyễn Văn A', '2', '2', 'user1@domain.com', 'user');
 
 -- Thêm dữ liệu cho bảng domain_extensions
 INSERT INTO domain_extensions (extension, default_price, description)
@@ -136,26 +139,6 @@ VALUES
     (12, 0.20, N'12 tháng - Giảm 20%');
 GO
 
--- Thêm đơn đặt hàng mẫu
-INSERT INTO orders (buyer_id, domain_id, rental_period_id, status, created_at, expiry_date, total_price)
-VALUES
-    (2, 1, 3, 'Completed', DATEADD(month, -2, GETDATE()), DATEADD(month, 4, GETDATE()), 190000),
-    (3, 3, 3, 'Completed', DATEADD(month, -1, GETDATE()), DATEADD(month, 11, GETDATE()), 183600);
-GO
-
--- Cập nhật trạng thái domain đã thuê
-UPDATE domains SET status = 'Rented', expiry_date = DATEADD(month, 4, GETDATE()) WHERE id = 1;
-UPDATE domains SET status = 'Rented', expiry_date = DATEADD(month, 11, GETDATE()) WHERE id = 3;
-GO
-
--- Thêm giao dịch mẫu
-INSERT INTO transactions (order_id, domain_id, total, timestamp)
-VALUES
-    (1, 1, 190000, DATEADD(month, -2, GETDATE())),
-    (2, 3, 183600, DATEADD(month, -1, GETDATE()));
-GO
-
--- Tạo các thủ tục lưu trữ (stored procedures) cho các tác vụ phổ biến
 
 -- Thủ tục tìm kiếm domain theo tên
 CREATE PROCEDURE SearchDomains
@@ -185,14 +168,15 @@ BEGIN
     SELECT
         o.id as order_id,
         CONCAT(d.name, d.extension) as domain_name,
-        o.total_price as price,
-        o.created_at as purchase_date,
+        od.price as price,  -- Sử dụng giá từ order_details thay vì từ orders
+        od.purchase_date as purchase_date,
         o.expiry_date,
         o.status,
         rp.months as rental_period
     FROM orders o
     JOIN domains d ON o.domain_id = d.id
     JOIN rental_periods rp ON o.rental_period_id = rp.id
+    LEFT JOIN order_details od ON o.id = od.order_id AND o.domain_id = od.domain_id
     WHERE o.buyer_id = @userId
     ORDER BY o.created_at DESC;
 END;
@@ -211,9 +195,11 @@ BEGIN
     DECLARE @totalPrice DECIMAL(10, 2);
     DECLARE @expiryDate DATETIME;
     DECLARE @orderId INT;
+    DECLARE @domainName VARCHAR(100);
+    DECLARE @domainExtension VARCHAR(20);
 
     -- Lấy thông tin giá và thời gian
-    SELECT @domainPrice = price FROM domains WHERE id = @domainId;
+    SELECT @domainPrice = price, @domainName = name, @domainExtension = extension FROM domains WHERE id = @domainId;
     SELECT @discount = discount, @months = months FROM rental_periods WHERE id = @rentalPeriodId;
 
     -- Tính tổng tiền và ngày hết hạn
@@ -226,6 +212,10 @@ BEGIN
 
     SET @orderId = SCOPE_IDENTITY();
 
+    -- Tạo chi tiết đơn hàng
+    INSERT INTO order_details (order_id, domain_id, domain_name, domain_extension, price, purchase_date, status)
+    VALUES (@orderId, @domainId, @domainName, @domainExtension, @totalPrice, GETDATE(), 'Pending');
+
     -- Trả về ID của đơn hàng vừa tạo
     SELECT @orderId AS OrderId;
 END;
@@ -237,5 +227,24 @@ CREATE PROCEDURE GetExtensionDefaultPrice
 AS
 BEGIN
     SELECT default_price FROM domain_extensions WHERE extension = @extension;
+END;
+GO
+
+-- Thêm thủ tục lấy chi tiết đơn hàng theo order_id
+CREATE PROCEDURE GetOrderDetails
+    @orderId INT
+AS
+BEGIN
+    SELECT 
+        od.id,
+        od.order_id,
+        od.domain_id,
+        od.domain_name,
+        od.domain_extension,
+        od.price,
+        od.purchase_date,
+        od.status
+    FROM order_details od
+    WHERE od.order_id = @orderId;
 END;
 GO

@@ -1,18 +1,18 @@
 package view.AdminView.panels;
 
+import javax.swing.*;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.DefaultTableCellRenderer;
-import javax.swing.table.DefaultTableModel;
+
 import model.Domain;
 import repository.DomainRepository;
 
@@ -80,7 +80,7 @@ public class DomainsPanel extends JPanel {
         toolPanel.add(buttonPanel, BorderLayout.EAST);
 
         // Bảng domains
-        String[] columnNames = { "ID", "Tên", "Phần mở rộng", "Giá", "Trạng thái", "Ngày hết hạn", "Thao tác" };
+        String[] columnNames = { "ID", "Tên", "Phần mở rộng", "Giá", "Trạng thái", "Thời gian", "Thao tác" };
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -193,11 +193,30 @@ public class DomainsPanel extends JPanel {
             DecimalFormat priceFormat = new DecimalFormat("#,### VND");
 
             for (Domain domain : domains) {
-                // Định dạng ngày hết hạn
-                String expiryDateStr = "";
-                if (domain.getExpiryDate() != null) {
+                // Chuỗi thông tin thời gian
+                String timeInfo = "";
+                
+                // Nếu domain đã được thuê và có ngày hết hạn
+                if ("Đã thuê".equals(domain.getStatus()) && domain.getExpiryDate() != null) {
+                    // Lấy thông tin đơn hàng mới nhất của tên miền
+                    try {
+                        // Ngày hiện tại là ngày thuê, ngày hết hạn lấy từ domain
+                        Date currentDate = new Date();
+                        Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
+                        
+                        // Định dạng để hiển thị thời gian
+                        timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
+                    } catch (Exception ex) {
+                        // Nếu có lỗi khi lấy thông tin đơn hàng, chỉ hiển thị ngày hết hạn
+                        if (domain.getExpiryDate() != null) {
+                            Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
+                            timeInfo = "Đến: " + dateFormat.format(expiryDate);
+                        }
+                    }
+                } else if (domain.getExpiryDate() != null) {
+                    // Nếu có ngày hết hạn nhưng không phải trạng thái đã thuê
                     Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
-                    expiryDateStr = dateFormat.format(expiryDate);
+                    timeInfo = "Hết hạn: " + dateFormat.format(expiryDate);
                 }
 
                 // Định dạng giá
@@ -209,7 +228,7 @@ public class DomainsPanel extends JPanel {
                         domain.getExtension(),
                         priceStr,
                         domain.getStatus(),
-                        expiryDateStr,
+                        timeInfo,
                         ""
                 });
             }
@@ -233,11 +252,30 @@ public class DomainsPanel extends JPanel {
             DecimalFormat priceFormat = new DecimalFormat("#,### VND");
 
             for (Domain domain : domains) {
-                // Định dạng ngày hết hạn
-                String expiryDateStr = "";
-                if (domain.getExpiryDate() != null) {
+                // Chuỗi thông tin thời gian
+                String timeInfo = "";
+                
+                // Nếu domain đã được thuê và có ngày hết hạn
+                if ("Đã thuê".equals(domain.getStatus()) && domain.getExpiryDate() != null) {
+                    // Lấy thông tin đơn hàng mới nhất của tên miền
+                    try {
+                        // Ngày hiện tại là ngày thuê, ngày hết hạn lấy từ domain
+                        Date currentDate = new Date();
+                        Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
+                        
+                        // Định dạng để hiển thị thời gian
+                        timeInfo = dateFormat.format(currentDate) + " - " + dateFormat.format(expiryDate);
+                    } catch (Exception ex) {
+                        // Nếu có lỗi khi lấy thông tin đơn hàng, chỉ hiển thị ngày hết hạn
+                        if (domain.getExpiryDate() != null) {
+                            Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
+                            timeInfo = "Đến: " + dateFormat.format(expiryDate);
+                        }
+                    }
+                } else if (domain.getExpiryDate() != null) {
+                    // Nếu có ngày hết hạn nhưng không phải trạng thái đã thuê
                     Date expiryDate = Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant());
-                    expiryDateStr = dateFormat.format(expiryDate);
+                    timeInfo = "Hết hạn: " + dateFormat.format(expiryDate);
                 }
 
                 // Định dạng giá
@@ -249,7 +287,7 @@ public class DomainsPanel extends JPanel {
                         domain.getExtension(),
                         priceStr,
                         domain.getStatus(),
-                        expiryDateStr,
+                        timeInfo,
                         ""
                 });
             }
@@ -276,89 +314,18 @@ public class DomainsPanel extends JPanel {
         try {
             Domain domain = domainRepository.getDomainById(domainId);
             if (domain != null) {
-                // Tạo các trường nhập liệu
-                JTextField nameField = new JTextField(domain.getName());
-                JTextField extensionField = new JTextField(domain.getExtension());
-                JTextField priceField = new JTextField(String.valueOf(domain.getPrice()));
-                JComboBox<String> statusComboBox = new JComboBox<>(new String[] { "Available", "Rented", "Reserved" });
-                statusComboBox.setSelectedItem(domain.getStatus());
+                // Tạo form chỉnh sửa domain
+                JOptionPane.showMessageDialog(parentFrame,
+                        "Chỉnh sửa tên miền: " + domain.getName() + domain.getExtension(),
+                        "Chỉnh sửa tên miền",
+                        JOptionPane.INFORMATION_MESSAGE);
 
-                // Tạo trường chọn ngày hết hạn
-                JSpinner expiryDateSpinner = new JSpinner(new SpinnerDateModel());
-                JSpinner.DateEditor dateEditor = new JSpinner.DateEditor(expiryDateSpinner, "dd/MM/yyyy");
-                expiryDateSpinner.setEditor(dateEditor);
-                expiryDateSpinner.setEnabled("Rented".equals(domain.getStatus()));
-
-                // Đặt giá trị ngày hết hạn nếu có
-                if (domain.getExpiryDate() != null) {
-                    expiryDateSpinner.setValue(Date.from(domain.getExpiryDate().atZone(ZoneId.systemDefault()).toInstant()));
-                }
-
-                // Thêm sự kiện thay đổi trạng thái
-                statusComboBox.addActionListener(e -> {
-                    String selectedStatus = (String) statusComboBox.getSelectedItem();
-                    expiryDateSpinner.setEnabled("Rented".equals(selectedStatus));
-                });
-
-                // Tạo panel chứa các trường
-                JPanel panel = new JPanel(new GridLayout(5, 2, 10, 10));
-                panel.add(new JLabel("Tên:"));
-                panel.add(nameField);
-                panel.add(new JLabel("Phần mở rộng:"));
-                panel.add(extensionField);
-                panel.add(new JLabel("Giá:"));
-                panel.add(priceField);
-                panel.add(new JLabel("Trạng thái:"));
-                panel.add(statusComboBox);
-                panel.add(new JLabel("Ngày hết hạn:"));
-                panel.add(expiryDateSpinner);
-
-                // Hiển thị dialog
-                int result = JOptionPane.showConfirmDialog(parentFrame, panel, "Chỉnh sửa tên miền", JOptionPane.OK_CANCEL_OPTION);
-                if (result == JOptionPane.OK_OPTION) {
-                    // Lấy dữ liệu từ form
-                    String newName = nameField.getText().trim();
-                    String newExtension = extensionField.getText().trim();
-                    double newPrice;
-                    try {
-                        newPrice = Double.parseDouble(priceField.getText().trim());
-                    } catch (NumberFormatException e) {
-                        JOptionPane.showMessageDialog(parentFrame, "Giá phải là một số hợp lệ.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-                    String newStatus = (String) statusComboBox.getSelectedItem();
-                    Date expiryDate = null;
-
-                    if ("Rented".equals(newStatus)) {
-                        expiryDate = (Date) expiryDateSpinner.getValue();
-                        if (expiryDate.before(new Date())) {
-                            JOptionPane.showMessageDialog(parentFrame, "Ngày hết hạn phải lớn hơn ngày hiện tại.", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                            return;
-                        }
-                    }
-
-                    // Cập nhật domain
-                    domain.setName(newName);
-                    domain.setExtension(newExtension);
-                    domain.setPrice(newPrice);
-                    domain.setStatus(newStatus);
-                    if (expiryDate != null) {
-                        domain.setExpiryDate(expiryDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate().atStartOfDay());                    } else {
-                        domain.setExpiryDate(null);
-                    }
-                    try {
-                        domainRepository.save(domain);
-                        JOptionPane.showMessageDialog(parentFrame, "Cập nhật tên miền thành công!", "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-                        loadDomainData(); // Refresh dữ liệu bảng
-                    } catch (SQLException | IllegalArgumentException e) {
-                        JOptionPane.showMessageDialog(parentFrame, "Lỗi khi cập nhật tên miền: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
-                    }
-                }
-            } else {
-                JOptionPane.showMessageDialog(parentFrame, "Không tìm thấy thông tin tên miền!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                // TODO: Hiển thị form chỉnh sửa domain
             }
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(parentFrame, "Không thể tải thông tin tên miền: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(parentFrame,
+                    "Không thể tải thông tin tên miền: " + e.getMessage(),
+                    "Lỗi", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -368,7 +335,7 @@ public class DomainsPanel extends JPanel {
                     "Bạn chắc chắn muốn xóa tên miền này?",
                     "Xác nhận xóa",
                     JOptionPane.YES_NO_OPTION);
-    
+
             if (confirm == JOptionPane.YES_OPTION) {
                 // Gọi repository để xóa domain
                 boolean result = domainRepository.deleteDomain(domainId);
@@ -376,12 +343,12 @@ public class DomainsPanel extends JPanel {
                     JOptionPane.showMessageDialog(parentFrame,
                             "Đã xóa tên miền thành công!",
                             "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-    
+
                     // Refresh data
                     loadDomainData();
                 } else {
                     JOptionPane.showMessageDialog(parentFrame,
-                            "Không thể xóa tên miền! Vui lòng kiểm tra lại dữ liệu.",
+                            "Không thể xóa tên miền!",
                             "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
             }

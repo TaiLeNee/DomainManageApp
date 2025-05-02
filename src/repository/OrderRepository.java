@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Optional;
 import model.Order;
 
-
 public class OrderRepository {
     private Connection connection;
 
@@ -31,7 +30,7 @@ public class OrderRepository {
         try {
             String sql = "SELECT * FROM orders ORDER BY created_at DESC";
             try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery(sql)) {
+                    ResultSet rs = stmt.executeQuery(sql)) {
                 while (rs.next()) {
                     Order order = new Order();
                     order.setId(rs.getInt("id"));
@@ -79,7 +78,7 @@ public class OrderRepository {
         try {
             String sql = "SELECT TOP " + limit + " * FROM orders ORDER BY created_at DESC";
             try (Statement stmt = connection.createStatement();
-                 ResultSet rs = stmt.executeQuery(sql)) {
+                    ResultSet rs = stmt.executeQuery(sql)) {
                 while (rs.next()) {
                     Order order = new Order();
                     order.setId(rs.getInt("id"));
@@ -261,7 +260,7 @@ public class OrderRepository {
         List<Order> orders = new ArrayList<>();
         String sql = "SELECT * FROM orders";
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+                ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 orders.add(new Order(
                         rs.getInt("id"),
@@ -360,5 +359,86 @@ public class OrderRepository {
         }
 
         return null;
+    }
+
+    /**
+     * Cập nhật trạng thái đơn hàng và tự động cập nhật trạng thái tên miền liên
+     * quan
+     * 
+     * @param orderId   ID của đơn hàng cần cập nhật
+     * @param newStatus Trạng thái mới của đơn hàng
+     * @return true nếu cập nhật thành công, false nếu thất bại
+     */
+    public boolean updateOrderStatus(int orderId, String newStatus) {
+        try {
+            connection.setAutoCommit(false);
+
+            // Cập nhật trạng thái đơn hàng
+            String updateOrderSQL = "UPDATE orders SET status = ? WHERE id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(updateOrderSQL)) {
+                stmt.setString(1, newStatus);
+                stmt.setInt(2, orderId);
+                int updatedRows = stmt.executeUpdate();
+
+                if (updatedRows == 0) {
+                    connection.rollback();
+                    return false;
+                }
+            }
+
+            // Cập nhật trạng thái chi tiết đơn hàng
+            String updateDetailsSQL = "UPDATE order_details SET status = ? WHERE order_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(updateDetailsSQL)) {
+                stmt.setString(1, newStatus);
+                stmt.setInt(2, orderId);
+                stmt.executeUpdate();
+            }
+
+            // Cập nhật trạng thái tên miền tương ứng nếu đơn hàng đã hoàn thành
+            if (newStatus.equalsIgnoreCase("Hoàn thành")) {
+                // Lấy thông tin đơn hàng để biết thời gian hết hạn
+                String getOrderSQL = "SELECT domain_id, expiry_date FROM orders WHERE id = ?";
+                try (PreparedStatement stmt = connection.prepareStatement(getOrderSQL)) {
+                    stmt.setInt(1, orderId);
+                    try (ResultSet rs = stmt.executeQuery()) {
+                        if (rs.next()) {
+                            int domainId = rs.getInt("domain_id");
+                            java.sql.Timestamp expiryDate = rs.getTimestamp("expiry_date");
+                            
+                            // Cập nhật cả trạng thái và ngày hết hạn của tên miền
+                            String updateDomainSQL = "UPDATE domains SET status = ?, expiry_date = ? WHERE id = ?";
+                            try (PreparedStatement updateStmt = connection.prepareStatement(updateDomainSQL)) {
+                                updateStmt.setString(1, "Đã thuê");
+                                updateStmt.setTimestamp(2, expiryDate);
+                                updateStmt.setInt(3, domainId);
+                                updateStmt.executeUpdate();
+                            }
+                            
+                            // Cập nhật trạng thái và ngày hết hạn cho các tên miền trong order_details
+                            DomainRepository domainRepo = new DomainRepository(connection);
+                            domainRepo.updateDomainStatusByOrderIdWithExpiryDate(orderId, "Đã thuê", expiryDate);
+                        }
+                    }
+                }
+            }
+
+            connection.commit();
+            return true;
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException rollbackEx) {
+                System.err.println("Error rolling back transaction: " + rollbackEx.getMessage());
+            }
+            System.err.println("Error updating order status: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        } finally {
+            try {
+                connection.setAutoCommit(true);
+            } catch (SQLException e) {
+                System.err.println("Error setting auto commit: " + e.getMessage());
+            }
+        }
     }
 }

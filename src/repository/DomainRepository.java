@@ -54,21 +54,21 @@ public class DomainRepository {
                 stmt.setInt(1, id);
                 stmt.executeUpdate();
             }
-    
+
             // Xóa các bản ghi liên quan trong bảng transactions
             String deleteTransactionsSql = "DELETE FROM transactions WHERE domain_id = ?";
             try (PreparedStatement stmt = connection.prepareStatement(deleteTransactionsSql)) {
                 stmt.setInt(1, id);
                 stmt.executeUpdate();
             }
-    
+
             // Xóa domain
             String deleteDomainSql = "DELETE FROM domains WHERE id = ?";
             try (PreparedStatement stmt = connection.prepareStatement(deleteDomainSql)) {
                 stmt.setInt(1, id);
                 stmt.executeUpdate();
             }
-    
+
             return true;
         } catch (SQLException e) {
             System.err.println("Error deleting domain: " + e.getMessage());
@@ -76,6 +76,7 @@ public class DomainRepository {
             return false;
         }
     }
+
     public void save(Domain domain) throws SQLException, IllegalArgumentException {
         validateDomain(domain);
 
@@ -186,7 +187,7 @@ public class DomainRepository {
         List<Domain> domains = new ArrayList<>();
         String sql = "SELECT * FROM domains";
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+                ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 Domain domain = new Domain(
                         rs.getInt("id"),
@@ -226,7 +227,7 @@ public class DomainRepository {
         String sql = "SELECT * FROM domains WHERE status = 'Rented' AND expiry_date < CURRENT_TIMESTAMP";
 
         try (Statement stmt = connection.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
+                ResultSet rs = stmt.executeQuery(sql)) {
             while (rs.next()) {
                 Domain domain = new Domain(
                         rs.getInt("id"),
@@ -280,6 +281,7 @@ public class DomainRepository {
 
     /**
      * Tìm kiếm tên miền theo từ khóa
+     * 
      * @param searchTerm Từ khóa tìm kiếm (tên miền hoặc phần mở rộng)
      * @return Danh sách các tên miền phù hợp với từ khóa
      */
@@ -327,6 +329,100 @@ public class DomainRepository {
         }
 
         return results;
+    }
+
+    /**
+     * Cập nhật trạng thái các tên miền theo ID đơn hàng
+     * 
+     * @param orderId ID của đơn hàng cần cập nhật tên miền
+     * @param status  Trạng thái mới của tên miền (Đã thuê, Khả dụng, v.v.)
+     * @return Số lượng tên miền được cập nhật thành công
+     */
+    public int updateDomainStatusByOrderId(int orderId, String status) {
+        int updatedCount = 0;
+
+        try {
+            // Lấy danh sách domain_id từ order_details
+            String selectSQL = "SELECT domain_id FROM order_details WHERE order_id = ?";
+            List<Integer> domainIds = new ArrayList<>();
+
+            try (PreparedStatement stmt = connection.prepareStatement(selectSQL)) {
+                stmt.setInt(1, orderId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        domainIds.add(rs.getInt("domain_id"));
+                    }
+                }
+            }
+
+            if (domainIds.isEmpty()) {
+                return 0;
+            }
+
+            // Cập nhật trạng thái cho tất cả domain_id đã lấy
+            for (int domainId : domainIds) {
+                String updateSQL = "UPDATE domains SET status = ? WHERE id = ?";
+                try (PreparedStatement stmt = connection.prepareStatement(updateSQL)) {
+                    stmt.setString(1, status);
+                    stmt.setInt(2, domainId);
+                    updatedCount += stmt.executeUpdate();
+                }
+            }
+
+            return updatedCount;
+        } catch (SQLException e) {
+            System.err.println("Error updating domain status by order: " + e.getMessage());
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
+    /**
+     * Cập nhật trạng thái và ngày hết hạn các tên miền theo ID đơn hàng
+     * 
+     * @param orderId    ID của đơn hàng cần cập nhật tên miền
+     * @param status     Trạng thái mới của tên miền (Đã thuê, Khả dụng, v.v.)
+     * @param expiryDate Ngày hết hạn mới cho tên miền
+     * @return Số lượng tên miền được cập nhật thành công
+     */
+    public int updateDomainStatusByOrderIdWithExpiryDate(int orderId, String status, Timestamp expiryDate) {
+        int updatedCount = 0;
+
+        try {
+            // Lấy danh sách domain_id từ order_details
+            String selectSQL = "SELECT domain_id FROM order_details WHERE order_id = ?";
+            List<Integer> domainIds = new ArrayList<>();
+
+            try (PreparedStatement stmt = connection.prepareStatement(selectSQL)) {
+                stmt.setInt(1, orderId);
+                try (ResultSet rs = stmt.executeQuery()) {
+                    while (rs.next()) {
+                        domainIds.add(rs.getInt("domain_id"));
+                    }
+                }
+            }
+
+            if (domainIds.isEmpty()) {
+                return 0;
+            }
+
+            // Cập nhật trạng thái và ngày hết hạn cho tất cả domain_id đã lấy
+            for (int domainId : domainIds) {
+                String updateSQL = "UPDATE domains SET status = ?, expiry_date = ? WHERE id = ?";
+                try (PreparedStatement stmt = connection.prepareStatement(updateSQL)) {
+                    stmt.setString(1, status);
+                    stmt.setTimestamp(2, expiryDate);
+                    stmt.setInt(3, domainId);
+                    updatedCount += stmt.executeUpdate();
+                }
+            }
+
+            return updatedCount;
+        } catch (SQLException e) {
+            System.err.println("Error updating domain status and expiry date by order: " + e.getMessage());
+            e.printStackTrace();
+            return 0;
+        }
     }
 
 }

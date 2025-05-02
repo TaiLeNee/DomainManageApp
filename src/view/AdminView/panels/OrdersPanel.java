@@ -13,10 +13,12 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import model.Domain;
 import model.Order;
+import model.OrderDetails;
 import model.User;
 import repository.DomainRepository;
 import repository.OrderRepository;
 import repository.UserRepository;
+import service.OrderDetailsService;
 
 public class OrdersPanel extends JPanel {
     private static final Color BG_COLOR = new Color(245, 245, 245);
@@ -26,6 +28,7 @@ public class OrdersPanel extends JPanel {
     private OrderRepository orderRepository;
     private DomainRepository domainRepository;
     private UserRepository userRepository;
+    private OrderDetailsService orderDetailsService;
     private JTable ordersTable;
     private DefaultTableModel tableModel;
     private JFrame parentFrame;
@@ -36,6 +39,7 @@ public class OrdersPanel extends JPanel {
         this.orderRepository = orderRepository;
         this.domainRepository = domainRepository;
         this.userRepository = userRepository;
+        this.orderDetailsService = new OrderDetailsService();
         this.parentFrame = parentFrame;
 
         setLayout(new BorderLayout());
@@ -152,14 +156,28 @@ public class OrdersPanel extends JPanel {
                     int xInCell = e.getX() - rect.x;
 
                     String orderId = ((String) ordersTable.getValueAt(row, 0)).substring(1); // Bỏ dấu # đầu tiên
+                    int orderIdValue = Integer.parseInt(orderId);
+
+                    // Kiểm tra là record đơn hàng hay chi tiết đơn hàng
+                    boolean isOrderDetail = row < tableModel.getRowCount() &&
+                            tableModel.getValueAt(row, 0) != null &&
+                            tableModel.getValueAt(row, 0).toString().contains("-");
+
+                    // Nếu là chi tiết đơn hàng, lấy ID đơn hàng chính
+                    if (isOrderDetail) {
+                        String[] parts = orderId.split("-");
+                        if (parts.length > 0) {
+                            orderIdValue = Integer.parseInt(parts[0]);
+                        }
+                    }
 
                     // Nếu click gần phía trái (nút Xem)
                     if (xInCell <= 65) {
-                        viewOrderDetail(Integer.parseInt(orderId));
+                        viewOrderDetail(orderIdValue);
                     }
                     // Nếu click gần phía phải (nút Cập nhật)
                     else if (xInCell > 65) {
-                        updateOrderStatus(Integer.parseInt(orderId));
+                        updateOrderStatus(orderIdValue);
                     }
                 }
             }
@@ -197,30 +215,65 @@ public class OrdersPanel extends JPanel {
         DecimalFormat priceFormat = new DecimalFormat("#,### VND");
 
         for (Order order : orders) {
-            // Lấy thông tin tên miền và người dùng
-            Domain domain = null;
+            // Lấy thông tin người dùng
             User user = null;
             try {
-                domain = domainRepository.getDomainById(order.getDomainId());
                 user = userRepository.getUserById(order.getUserId());
             } catch (Exception e) {
-                // Bỏ qua lỗi khi lấy thông tin domain hoặc user
+                // Bỏ qua lỗi khi lấy thông tin user
             }
 
-            String domainName = domain != null ? domain.getName() + domain.getExtension() : "N/A";
             String userName = user != null ? user.getEmail() : "N/A";
-            String orderDate = dateFormat.format(order.getOrderDate());
-            String price = priceFormat.format(order.getTotalPrice());
 
+            // Xử lý an toàn cho ngày đặt hàng
+            String orderDate = "N/A";
+            try {
+                if (order.getOrderDate() != null) {
+                    orderDate = dateFormat.format(order.getOrderDate());
+                }
+            } catch (Exception e) {
+                // Nếu không thể định dạng ngày, giữ giá trị mặc định "N/A"
+                System.err.println("Lỗi định dạng ngày đặt hàng: " + e.getMessage());
+            }
+
+            // First add the order header row (showing total price)
             tableModel.addRow(new Object[] {
                     "#" + order.getId(),
-                    domainName,
+                    "Đơn hàng #" + order.getId(),
                     userName,
                     orderDate,
-                    price,
+                    priceFormat.format(order.getTotalPrice()),
                     order.getStatus(),
                     ""
             });
+
+            // Then add detailed rows for each domain in this order
+            List<OrderDetails> orderDetails = orderDetailsService.getOrderDetailsByOrderId(order.getId());
+            if (orderDetails != null && !orderDetails.isEmpty()) {
+                for (OrderDetails detail : orderDetails) {
+                    // Xử lý an toàn cho ngày mua
+                    String purchaseDate = "N/A";
+                    try {
+                        if (detail.getPurchaseDate() != null) {
+                            purchaseDate = dateFormat.format(java.sql.Timestamp.valueOf(detail.getPurchaseDate()));
+                        }
+                    } catch (Exception e) {
+                        // Nếu không thể định dạng ngày, giữ giá trị mặc định "N/A"
+                        System.err.println("Lỗi định dạng ngày mua: " + e.getMessage());
+                    }
+
+                    // Add individual domain details with their own prices
+                    tableModel.addRow(new Object[] {
+                            "#" + order.getId() + "-" + detail.getId(),
+                            detail.getFullDomainName(),
+                            "",
+                            purchaseDate,
+                            priceFormat.format(detail.getPrice()),
+                            detail.getStatus(),
+                            ""
+                    });
+                }
+            }
         }
 
         if (orders.isEmpty()) {
@@ -257,29 +310,31 @@ public class OrdersPanel extends JPanel {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Chọn vị trí lưu file");
         fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-    
+
         // Đặt tên file mặc định
         fileChooser.setSelectedFile(new java.io.File("orders_report.csv"));
-    
+
         int userSelection = fileChooser.showSaveDialog(parentFrame);
-    
+
         if (userSelection == JFileChooser.APPROVE_OPTION) {
             java.io.File fileToSave = fileChooser.getSelectedFile();
-    
+
             try (java.io.OutputStreamWriter writer = new java.io.OutputStreamWriter(
                     new java.io.FileOutputStream(fileToSave), "UTF-8")) {
                 // Ghi tiêu đề cột
                 for (int i = 0; i < tableModel.getColumnCount(); i++) {
                     writer.write(tableModel.getColumnName(i) + (i == tableModel.getColumnCount() - 1 ? "\n" : ","));
                 }
-    
+
                 // Ghi dữ liệu từng hàng
                 for (int i = 0; i < tableModel.getRowCount(); i++) {
                     for (int j = 0; j < tableModel.getColumnCount(); j++) {
-                        writer.write(tableModel.getValueAt(i, j) + (j == tableModel.getColumnCount() - 1 ? "\n" : ","));
+                        Object value = tableModel.getValueAt(i, j);
+                        writer.write((value != null ? value.toString() : "") +
+                                (j == tableModel.getColumnCount() - 1 ? "\n" : ","));
                     }
                 }
-    
+
                 JOptionPane.showMessageDialog(parentFrame,
                         "Xuất dữ liệu thành công!",
                         "Thông báo", JOptionPane.INFORMATION_MESSAGE);
@@ -295,22 +350,42 @@ public class OrdersPanel extends JPanel {
         try {
             Order order = orderRepository.getOrderById(orderId);
             if (order != null) {
-                Domain domain = domainRepository.getDomainById(order.getDomainId());
                 User user = userRepository.getUserById(order.getUserId());
+                List<OrderDetails> details = orderDetailsService.getOrderDetailsByOrderId(orderId);
 
-                // Tạo thông báo chi tiết đơn hàng
-                StringBuilder details = new StringBuilder();
-                details.append("Mã đơn hàng: #").append(order.getId()).append("\n");
-                details.append("Tên miền: ").append(domain != null ? domain.getName() + domain.getExtension() : "N/A")
-                        .append("\n");
-                details.append("Khách hàng: ").append(user != null ? user.getEmail() : "N/A").append("\n");
-                details.append("Ngày đặt: ")
-                        .append(new SimpleDateFormat("dd/MM/yyyy HH:mm").format(order.getOrderDate())).append("\n");
-                details.append("Tổng tiền: ").append(new DecimalFormat("#,### VND").format(order.getTotalPrice()))
-                        .append("\n");
-                details.append("Trạng thái: ").append(order.getStatus()).append("\n");
+                // Create order details message
+                StringBuilder detailsMessage = new StringBuilder();
+                detailsMessage.append("Mã đơn hàng: #").append(order.getId()).append("\n");
+                detailsMessage.append("Khách hàng: ").append(user != null ? user.getEmail() : "N/A").append("\n");
 
-                JOptionPane.showMessageDialog(parentFrame, details.toString(),
+                // Xử lý an toàn cho ngày đặt hàng
+                String orderDateStr = "N/A";
+                try {
+                    if (order.getOrderDate() != null) {
+                        orderDateStr = new SimpleDateFormat("dd/MM/yyyy HH:mm").format(order.getOrderDate());
+                    }
+                } catch (Exception e) {
+                    System.err.println("Lỗi định dạng ngày đặt hàng: " + e.getMessage());
+                }
+                detailsMessage.append("Ngày đặt: ").append(orderDateStr).append("\n");
+
+                detailsMessage.append("Trạng thái: ").append(order.getStatus()).append("\n\n");
+
+                detailsMessage.append("Chi tiết tên miền:\n");
+                if (details != null && !details.isEmpty()) {
+                    for (OrderDetails detail : details) {
+                        detailsMessage.append("- ").append(detail.getFullDomainName())
+                                .append(": ").append(new DecimalFormat("#,### VND").format(detail.getPrice()))
+                                .append("\n");
+                    }
+                } else {
+                    detailsMessage.append("- ").append("Không có chi tiết tên miền").append("\n");
+                }
+
+                detailsMessage.append("\nTổng tiền: ")
+                        .append(new DecimalFormat("#,### VND").format(order.getTotalPrice()));
+
+                JOptionPane.showMessageDialog(parentFrame, detailsMessage.toString(),
                         "Chi tiết đơn hàng #" + order.getId(),
                         JOptionPane.INFORMATION_MESSAGE);
             } else {
@@ -340,8 +415,8 @@ public class OrdersPanel extends JPanel {
                         order.getStatus());
 
                 if (selectedStatus != null && !selectedStatus.equals(order.getStatus())) {
-                    order.setStatus(selectedStatus);
-                    boolean result = orderRepository.updateOrder(order);
+                    // Sử dụng phương thức mới updateOrderStatus
+                    boolean result = orderRepository.updateOrderStatus(orderId, selectedStatus);
 
                     if (result) {
                         JOptionPane.showMessageDialog(parentFrame,
