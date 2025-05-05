@@ -305,7 +305,7 @@ public class SearchDomainPanel extends JPanel {
      */
     private void addDomainToCart(String domainName, double basePrice, RentalPeriod rentalPeriod) {
         String insertDomainQuery = "IF NOT EXISTS (SELECT 1 FROM domains WHERE name = ? AND extension = ?) " +
-                "INSERT INTO domains (name, extension, price, status) VALUES (?, ?, ?, 'Available')";
+                "INSERT INTO domains (name, extension, price, status) VALUES (?, ?, ?, N'Sẵn sàng')";
         String insertCartQuery = "INSERT INTO cart (user_id, domain_id, price, rental_period_id) VALUES (?, (SELECT id FROM domains WHERE name = ? AND extension = ?), ?, ?)";
 
         try (Connection connection = DatabaseConnection.getConnection();

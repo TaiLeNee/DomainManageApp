@@ -75,13 +75,43 @@ public class UserService {
 
     // Kiểm tra một tên miền có thuộc về user hay không
     public boolean isDomainOwnedByUser(int domainId, int userId) throws SQLException {
-        List<Order> orders = orderRepository.findByBuyerId(userId);
-        for (Order order : orders) {
-            if (order.getDomainId() == domainId &&
-                    (order.getStatus().equals("Completed") || order.getStatus().equals("Active"))) {
-                return true;
+        // Sử dụng OrderDetailsRepository thay vì Order.getDomainId()
+        try {
+            // Tạo OrderDetailsService để truy vấn dữ liệu
+            OrderDetailsService orderDetailsService = new OrderDetailsService();
+
+            // Lấy tất cả order details có chứa domainId này
+            List<OrderDetails> orderDetailsList = orderDetailsService.getOrderDetailsByDomainId(domainId);
+
+            // Nếu không có chi tiết đơn hàng nào chứa tên miền này, trả về false
+            if (orderDetailsList.isEmpty()) {
+                return false;
             }
+
+            // Kiểm tra xem có chi tiết đơn hàng nào thuộc về userId và có trạng thái hợp lệ
+            // không
+            for (OrderDetails detail : orderDetailsList) {
+                // Lấy order_id từ chi tiết đơn hàng
+                int orderId = detail.getOrderId();
+
+                // Lấy thông tin đơn hàng từ order_id
+                Optional<Order> orderOpt = orderRepository.findById(orderId);
+
+                if (orderOpt.isPresent()) {
+                    Order order = orderOpt.get();
+
+                    // Kiểm tra nếu đơn hàng này thuộc về người dùng và có trạng thái hợp lệ
+                    if (order.getUserId() == userId &&
+                            (order.getStatus().equals("Completed") || order.getStatus().equals("Active"))) {
+                        return true;
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            throw e;
         }
+
         return false;
     }
 

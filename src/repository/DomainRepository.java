@@ -425,4 +425,52 @@ public class DomainRepository {
         }
     }
 
+    protected Domain mapResultSetToEntity(ResultSet rs) throws SQLException {
+        Domain domain = new Domain();
+        domain.setId(rs.getInt("id"));
+        domain.setName(rs.getString("name"));
+        domain.setExtension(rs.getString("extension"));
+        domain.setPrice(rs.getDouble("price"));
+
+        // Chuẩn hóa status từ tiếng Anh sang tiếng Việt
+        String status = rs.getString("status");
+        if ("Available".equalsIgnoreCase(status)) {
+            domain.setStatus("Sẵn sàng");
+        } else if ("Reserved".equalsIgnoreCase(status) || "Taken".equalsIgnoreCase(status)) {
+            domain.setStatus("Đã đặt");
+        } else if ("Pending".equalsIgnoreCase(status)) {
+            domain.setStatus("Đang xử lý");
+        } else if (status == null || status.isEmpty()) {
+            domain.setStatus("Sẵn sàng"); // Mặc định là Sẵn sàng nếu không có status
+        } else {
+            domain.setStatus(status); // Giữ nguyên nếu đã là tiếng Việt
+        }
+
+        // Đọc ngày hết hạn nếu có
+        Timestamp expiryTimestamp = rs.getTimestamp("expiry_date");
+        if (expiryTimestamp != null) {
+            domain.setExpiryDate(expiryTimestamp.toLocalDateTime());
+        }
+
+        return domain;
+    }
+
+    // Tìm kiếm các domain khả dụng dựa trên tên
+    public List<Domain> findAvailableDomainsByName(String name) throws SQLException {
+        List<Domain> domains = new ArrayList<>();
+        String sql = "SELECT * FROM domains WHERE name LIKE ? AND status = ?";
+
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, "%" + name + "%");
+            statement.setString(2, "Sẵn sàng");
+
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) {
+                    domains.add(mapResultSetToEntity(rs));
+                }
+            }
+        }
+
+        return domains;
+    }
 }

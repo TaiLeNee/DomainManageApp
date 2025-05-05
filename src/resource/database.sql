@@ -60,14 +60,12 @@ GO
 CREATE TABLE orders (
     id INT IDENTITY(1,1) PRIMARY KEY,
     buyer_id INT NOT NULL,
-    domain_id INT NOT NULL,
     rental_period_id INT NOT NULL,
     status NVARCHAR(20) NOT NULL, 
     created_at DATETIME DEFAULT GETDATE(),
     expiry_date DATETIME NOT NULL,
     total_price DECIMAL(10, 2) NOT NULL,
     FOREIGN KEY (buyer_id) REFERENCES users(id),
-    FOREIGN KEY (domain_id) REFERENCES domains(id),
     FOREIGN KEY (rental_period_id) REFERENCES rental_periods(id)
 );
 GO
@@ -197,17 +195,16 @@ AS
 BEGIN
     SELECT
         o.id as order_id,
-        CONCAT(d.name, d.extension) as domain_name,
-        od.price as price,  -- Sử dụng giá từ order_details thay vì từ orders
+        CONCAT(od.domain_name, od.domain_extension) as domain_name,
+        od.price as price,
         od.purchase_date as purchase_date,
         od.expiry_date as expiry_date,
         o.status,
         rp.months as rental_period,
         rp.description as rental_period_description
     FROM orders o
-    JOIN domains d ON o.domain_id = d.id
+    JOIN order_details od ON o.id = od.order_id
     JOIN rental_periods rp ON o.rental_period_id = rp.id
-    LEFT JOIN order_details od ON o.id = od.order_id AND o.domain_id = od.domain_id
     WHERE o.buyer_id = @userId
     ORDER BY o.created_at DESC;
 END;
@@ -238,8 +235,8 @@ BEGIN
     SET @expiryDate = DATEADD(month, @months, GETDATE());
 
     -- Tạo đơn hàng
-    INSERT INTO orders (buyer_id, domain_id, rental_period_id, status, created_at, expiry_date, total_price)
-    VALUES (@buyerId, @domainId, @rentalPeriodId, 'Pending', GETDATE(), @expiryDate, @totalPrice);
+    INSERT INTO orders (buyer_id, rental_period_id, status, created_at, expiry_date, total_price)
+    VALUES (@buyerId, @rentalPeriodId, 'Pending', GETDATE(), @expiryDate, @totalPrice);
 
     SET @orderId = SCOPE_IDENTITY();
 
@@ -306,19 +303,31 @@ BEGIN
     DECLARE @orderId INT;
     DECLARE @totalOrderPrice DECIMAL(10, 2) = 0;
     
-    -- Bước 1: Tạo đơn hàng mới
-    INSERT INTO orders (buyer_id, domain_id, rental_period_id, status, created_at, expiry_date, total_price)
-    SELECT TOP 1 
+    -- Lấy tổng giá trị đơn hàng
+    SELECT @totalOrderPrice = SUM(ISNULL(discounted_price, price))
+    FROM cart
+    WHERE user_id = @userId;
+    
+    -- Tìm gói thuê có thời hạn dài nhất trong giỏ hàng
+    DECLARE @maxRentalPeriodId INT;
+    DECLARE @maxMonths INT;
+    
+    SELECT TOP 1 @maxRentalPeriodId = c.rental_period_id, @maxMonths = rp.months
+    FROM cart c 
+    JOIN rental_periods rp ON c.rental_period_id = rp.id
+    WHERE c.user_id = @userId
+    ORDER BY rp.months DESC;
+    
+    -- Bước 1: Tạo đơn hàng mới (không còn domain_id)
+    INSERT INTO orders (buyer_id, rental_period_id, status, created_at, expiry_date, total_price)
+    VALUES (
         @userId, 
-        c.domain_id, 
-        c.rental_period_id, 
+        @maxRentalPeriodId,
         @status, 
         GETDATE(), 
-        DATEADD(month, rp.months, GETDATE()), 
-        0 -- Tạm thời đặt là 0, sẽ cập nhật sau
-    FROM cart c
-    JOIN rental_periods rp ON c.rental_period_id = rp.id
-    WHERE c.user_id = @userId;
+        DATEADD(month, @maxMonths, GETDATE()), 
+        @totalOrderPrice
+    );
     
     -- Lấy ID của đơn hàng vừa tạo
     SET @orderId = SCOPE_IDENTITY();
@@ -341,27 +350,17 @@ BEGIN
     JOIN rental_periods rp ON c.rental_period_id = rp.id
     WHERE c.user_id = @userId;
     
-    -- Bước 3: Tính tổng giá trị đơn hàng và cập nhật
-    SELECT @totalOrderPrice = SUM(ISNULL(discounted_price, price))
-    FROM cart
-    WHERE user_id = @userId;
-    
-    -- Cập nhật tổng giá trị đơn hàng
-    UPDATE orders
-    SET total_price = @totalOrderPrice
-    WHERE id = @orderId;
-    
-    -- Bước 4: Cập nhật trạng thái domain thành đã thuê
+    -- Bước 3: Cập nhật trạng thái domain thành đã thuê
     UPDATE d
     SET 
-        d.status = 'Rented',
+        d.status = 'Reserved',
         d.expiry_date = DATEADD(month, rp.months, GETDATE())
     FROM domains d
     JOIN cart c ON d.id = c.domain_id
     JOIN rental_periods rp ON c.rental_period_id = rp.id
     WHERE c.user_id = @userId;
     
-    -- Bước 5: Xóa giỏ hàng của người dùng
+    -- Bước 4: Xóa giỏ hàng của người dùng
     DELETE FROM cart WHERE user_id = @userId;
     
     -- Trả về ID của đơn hàng đã tạo

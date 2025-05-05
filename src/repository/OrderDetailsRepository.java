@@ -13,7 +13,7 @@ public class OrderDetailsRepository {
         try {
             this.connection = DatabaseConnection.getConnection();
         } catch (SQLException e) {
-            System.err.println("Error connecting to database: " + e.getMessage());
+            System.err.println("Lỗi khi tạo OrderDetailsRepository: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -151,7 +151,8 @@ public class OrderDetailsRepository {
         List<OrderDetails> detailsList = new ArrayList<>();
         String sql = "SELECT od.* FROM order_details od " +
                 "JOIN orders o ON od.order_id = o.id " +
-                "WHERE o.buyer_id = ?";
+                "WHERE o.buyer_id = ? " +
+                "ORDER BY od.purchase_date DESC";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, userId);
@@ -207,7 +208,16 @@ public class OrderDetailsRepository {
         String sql = "UPDATE order_details SET status = ? WHERE id = ?";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-            stmt.setString(1, status);
+            // Chuẩn hóa status từ tiếng Anh sang tiếng Việt nếu cần
+            String vietnameseStatus = status;
+            if ("Completed".equalsIgnoreCase(status)) {
+                vietnameseStatus = "Hoàn thành";
+            } else if ("Pending".equalsIgnoreCase(status)) {
+                vietnameseStatus = "Đang xử lý";
+            } else if ("Cancelled".equalsIgnoreCase(status) || "Canceled".equalsIgnoreCase(status)) {
+                vietnameseStatus = "Hủy";
+            }
+            stmt.setString(1, vietnameseStatus);
             stmt.setInt(2, detailId);
 
             int affectedRows = stmt.executeUpdate();
@@ -220,7 +230,7 @@ public class OrderDetailsRepository {
             }
             return false;
         } catch (SQLException e) {
-            System.err.println("Error updating order detail status: " + e.getMessage());
+            System.err.println("Lỗi khi cập nhật trạng thái chi tiết đơn hàng: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -341,8 +351,19 @@ public class OrderDetailsRepository {
         if (expiryDateTS != null) {
             details.setExpiryDate(expiryDateTS.toLocalDateTime());
         }
+        // Chuẩn hóa status từ tiếng Anh sang tiếng Việt
+        if ("Completed".equalsIgnoreCase(status)) {
+            details.setStatus("Hoàn thành");
+        } else if ("Pending".equalsIgnoreCase(status)) {
+            details.setStatus("Đang xử lý");
+        } else if ("Cancelled".equalsIgnoreCase(status) || "Canceled".equalsIgnoreCase(status)) {
+            details.setStatus("Hủy");
+        } else if (status == null || status.isEmpty()) {
+            details.setStatus("Đang xử lý"); // Mặc định
+        } else {
+            details.setStatus(status); // Giữ nguyên nếu đã là tiếng Việt
+        }
         details.setRentalPeriodId(rentalPeriodId);
-        details.setStatus(status);
 
         return details;
     }

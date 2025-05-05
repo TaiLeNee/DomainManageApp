@@ -195,7 +195,9 @@ public class DashboardPanel extends JPanel {
             for (int i = 0; i < recentOrders.size(); i++) {
                 Order order = recentOrders.get(i);
                 User user = userRepository.getUserById(order.getUserId());
-                Domain domain = domainRepository.getDomainById(order.getDomainId());
+
+                // Không cần lấy thông tin domain từ order.getDomainId() nữa
+                // Thay vào đó, có thể lấy thông tin tên miền từ order_details nếu cần
 
                 // Thay ID bằng số thứ tự (i+1)
                 orderData[i][0] = String.valueOf(i + 1);
