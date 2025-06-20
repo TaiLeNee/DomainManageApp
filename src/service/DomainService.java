@@ -95,7 +95,7 @@ public class DomainService {
     public Order createRentalOrder(int userId, int domainId, int rentalPeriodId) throws SQLException {
         // Lấy thông tin tên miền
         Optional<Domain> domainOpt = domainRepository.findById(domainId);
-        if (!domainOpt.isPresent() || !domainOpt.get().getStatus().equalsIgnoreCase("Available")) {
+        if (!domainOpt.isPresent() || !domainOpt.get().getStatus().equalsIgnoreCase("Sẵn sàng")) {
             throw new IllegalArgumentException("Tên miền không khả dụng");
         }
         Domain domain = domainOpt.get();
@@ -118,21 +118,22 @@ public class DomainService {
         // Tạo đơn hàng mới
         Order order = new Order();
         order.setBuyerId(userId);
-        order.setDomainId(domainId);
         order.setRentalPeriodId(rentalPeriodId);
-        order.setStatus("Pending");
+        order.setStatus("Đang xử lý");
         order.setCreatedAt(now);
         order.setExpiryDate(expiryDate);
         order.setTotalPrice(discountedPrice); // Lưu giá đã giảm vào order
 
         // Lưu đơn hàng
+        System.out.println("rental_period_id = " + order.getRentalPeriodId());
         orderRepository.save(order);
 
         // Tạo chi tiết đơn hàng (OrderDetails)
         createOrderDetails(order.getId(), domain, originalPrice, discountedPrice, period, now, order.getStatus());
 
         // Cập nhật trạng thái tên miền
-        domain.setStatus("Reserved");
+        domain.setStatus("Đã đặt");
+        System.out.println("rental_period_id = " + order.getRentalPeriodId());
         domainRepository.save(domain);
 
         return order;
@@ -155,7 +156,7 @@ public class DomainService {
             try {
                 // Lấy thông tin tên miền
                 Optional<Domain> domainOpt = domainRepository.findById(domainId);
-                if (!domainOpt.isPresent() || !domainOpt.get().getStatus().equalsIgnoreCase("Available")) {
+                if (!domainOpt.isPresent() || !domainOpt.get().getStatus().equalsIgnoreCase("Sẵn sàng")) {
                     continue; // Bỏ qua tên miền không khả dụng
                 }
                 Domain domain = domainOpt.get();
@@ -171,14 +172,14 @@ public class DomainService {
                 // Tạo đơn hàng mới
                 Order order = new Order();
                 order.setBuyerId(userId);
-                order.setDomainId(domainId);
                 order.setRentalPeriodId(rentalPeriodId);
-                order.setStatus("Pending");
+                order.setStatus("Đang xử lý");
                 order.setCreatedAt(now);
                 order.setExpiryDate(expiryDate);
                 order.setTotalPrice(discountedPrice); // Lưu giá đã giảm vào order
 
                 // Lưu đơn hàng
+                System.out.println("rental_period_id = " + order.getRentalPeriodId());
                 orderRepository.save(order);
 
                 // Tạo chi tiết đơn hàng (OrderDetails)
@@ -186,7 +187,8 @@ public class DomainService {
                         order.getStatus());
 
                 // Cập nhật trạng thái tên miền
-                domain.setStatus("Reserved");
+                domain.setStatus("Đã đặt");
+                System.out.println("rental_period_id = " + order.getRentalPeriodId());
                 domainRepository.save(domain);
 
                 createdOrders.add(order);
@@ -241,7 +243,7 @@ public class DomainService {
     // Phương thức để tính giá thuê cho các gói khác nhau
     public double[] calculateRentalPrices(double monthlyPrice, int[] periods) {
         double[] prices = new double[periods.length];
-        for (int i = 0; i < periods.length; i++) {
+        for (int i = 0;i < periods.length; i++) {
             prices[i] = calculatePriceForPeriod(monthlyPrice, periods[i]);
         }
         return prices;
@@ -278,5 +280,181 @@ public class DomainService {
             e.printStackTrace();
         }
         return "";
+    }
+
+    /**
+     * Creates an order from the shopping cart
+     * 
+     * @param userId      The ID of the user making the purchase
+     * @param totalPrice  The total price of the order
+     * @param cartDomains List of domains in the cart
+     * @return true if order creation was successful, false otherwise
+     */
+    public boolean createOrderForCart(int userId, double totalPrice, List<Domain> cartDomains) {
+        if (cartDomains == null || cartDomains.isEmpty()) {
+            return false;
+        }
+
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            // Start a transaction
+            connection.setAutoCommit(false);
+
+            try {
+                // Create a parent order
+                LocalDateTime now = LocalDateTime.now();
+                Order mainOrder = new Order();
+                mainOrder.setBuyerId(userId);
+                mainOrder.setStatus("Đang xử lý");
+                mainOrder.setCreatedAt(now);
+                mainOrder.setTotalPrice(totalPrice);
+
+                // Tìm rental period phổ biến nhất hoặc có thời gian dài nhất để gán cho đơn
+                // hàng chính
+                int maxMonths = 12; // Mặc định là 12 tháng nếu không tìm được gì
+                int mainRentalPeriodId = 1; // Mặc định là ID 1 nếu không tìm được gói thuê
+
+                // Tìm gói thuê có thời gian dài nhất trong giỏ hàng
+                for (Domain domain : cartDomains) {
+                    try {
+                        int rentalPeriodId = getRentalPeriodIdFromCart(userId, domain.getId());
+                        Optional<RentalPeriod> periodOpt = rentalPeriodRepository.findById(rentalPeriodId);
+
+                        if (periodOpt.isPresent()) {
+                            RentalPeriod period = periodOpt.get();
+                            if (period.getMonths() > maxMonths) {
+                                maxMonths = period.getMonths();
+                                mainRentalPeriodId = rentalPeriodId;
+                            }
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error getting rental period for domain: " + e.getMessage());
+                    }
+                }
+
+                // Thiết lập rental_period_id cho đơn hàng chính
+                mainOrder.setRentalPeriodId(mainRentalPeriodId);
+
+                // Đặt ngày hết hạn dựa trên số tháng tối đa
+                mainOrder.setExpiryDate(now.plusMonths(maxMonths));
+
+                // Save the main order to get its ID
+                orderRepository.save(mainOrder);
+
+                // Process each domain in the cart
+                for (Domain domain : cartDomains) {
+                    // Get rental period ID from cart
+                    int rentalPeriodId = getRentalPeriodIdFromCart(userId, domain.getId());
+                    Optional<RentalPeriod> periodOpt = rentalPeriodRepository.findById(rentalPeriodId);
+
+                    if (!periodOpt.isPresent()) {
+                        // If rental period not found, use default 1 year (12 months)
+                        periodOpt = rentalPeriodRepository.findByMonths(12);
+                        if (!periodOpt.isPresent()) {
+                            throw new SQLException("Default rental period not found");
+                        }
+                    }
+
+                    RentalPeriod period = periodOpt.get();
+
+                    // Calculate original and discounted price
+                    double originalPrice = domain.getPrice() * period.getMonths();
+                    double discountedPrice = calculatePriceForPeriod(domain.getPrice(), period.getMonths());
+
+                    // Set expiry date based on rental period
+                    LocalDateTime expiryDate = now.plusMonths(period.getMonths());
+
+                    // Create order details for this domain
+                    OrderDetails orderDetails = new OrderDetails();
+                    orderDetails.setOrderId(mainOrder.getId());
+                    orderDetails.setDomainId(domain.getId());
+                    orderDetails.setDomainName(domain.getName());
+                    orderDetails.setDomainExtension(domain.getExtension());
+                    orderDetails.setOriginalPrice(originalPrice);
+                    orderDetails.setPrice(discountedPrice);
+                    orderDetails.setPurchaseDate(now);
+                    orderDetails.setExpiryDate(expiryDate);
+                    orderDetails.setRentalPeriodId(period.getId());
+                    orderDetails.setStatus("Đang xử lý");
+
+                    // Save order details
+                    orderDetailsService.createOrderDetail(orderDetails);
+
+                    // Update domain status to Reserved and ensure expiry date is set
+                    domain.setStatus("Đã đặt");
+                    domain.setExpiryDate(expiryDate); // This ensures expiry date is not null
+                    domainRepository.save(domain);
+
+                    // Delete domain from cart
+                    deleteFromCart(userId, domain.getId());
+                }
+
+                // Commit the transaction
+                connection.commit();
+                return true;
+            } catch (Exception e) {
+                // Rollback on error
+                connection.rollback();
+                System.err.println("Error creating order from cart: " + e.getMessage());
+                e.printStackTrace();
+                return false;
+            } finally {
+                // Restore auto-commit
+                connection.setAutoCommit(true);
+            }
+        } catch (SQLException e) {
+            System.err.println("Database connection error: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Get the rental period ID for a domain in the cart
+     * 
+     * @param userId   User ID
+     * @param domainId Domain ID
+     * @return Rental period ID
+     */
+    private int getRentalPeriodIdFromCart(int userId, int domainId) {
+        int defaultPeriodId = 1; // Default to 1 year (ID=1)
+
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            String query = "SELECT rental_period_id FROM cart WHERE user_id = ? AND domain_id = ?";
+            try (java.sql.PreparedStatement stmt = connection.prepareStatement(query)) {
+                stmt.setInt(1, userId);
+                stmt.setInt(2, domainId);
+
+                try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("rental_period_id");
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error getting rental period from cart: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return defaultPeriodId;
+    }
+
+    /**
+     * Delete a domain from the user's cart
+     * 
+     * @param userId   User ID
+     * @param domainId Domain ID
+     */
+    private void deleteFromCart(int userId, int domainId) {
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            String query = "DELETE FROM cart WHERE user_id = ? AND domain_id = ?";
+            try (java.sql.PreparedStatement stmt = connection.prepareStatement(query)) {
+                stmt.setInt(1, userId);
+                stmt.setInt(2, domainId);
+                stmt.executeUpdate();
+            }
+        } catch (SQLException e) {
+            System.err.println("Error deleting domain from cart: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 }

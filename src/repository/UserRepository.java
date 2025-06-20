@@ -258,25 +258,26 @@ public class UserRepository {
 
     public List<DomainPurchase> findDomainPurchasesByUserId(int userId) throws SQLException {
         List<DomainPurchase> purchases = new ArrayList<>();
-        String sql = "SELECT o.id as order_id, " +
-                "CONCAT(d.name, d.extension) as domain_name, " +
-                "o.total_price as price, " +
-                "o.created_at as purchase_date, " +
-                "o.expiry_date, " +
-                "o.status, " +
+        String sql = "SELECT od.id as order_detail_id, " +
+                "od.order_id, " +
+                "CONCAT(od.domain_name, od.domain_extension) as domain_name, " +
+                "od.price, " + // Use price from order_details table instead of orders table
+                "od.purchase_date, " +
+                "od.expiry_date, " +
+                "od.status, " +
                 "rp.months as rental_period " +
-                "FROM orders o " +
-                "JOIN domains d ON o.domain_id = d.id " +
-                "JOIN rental_periods rp ON o.rental_period_id = rp.id " +
+                "FROM order_details od " +
+                "JOIN orders o ON od.order_id = o.id " +
+                "JOIN rental_periods rp ON od.rental_period_id = rp.id " +
                 "WHERE o.buyer_id = ? " +
-                "ORDER BY o.created_at DESC";
+                "ORDER BY od.purchase_date DESC";
 
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setInt(1, userId);
             try (ResultSet rs = stmt.executeQuery()) {
                 while (rs.next()) {
                     DomainPurchase purchase = new DomainPurchase(
-                            rs.getInt("order_id"),
+                            rs.getInt("order_detail_id"),
                             rs.getString("domain_name"),
                             rs.getDouble("price"),
                             rs.getTimestamp("purchase_date").toLocalDateTime(),
@@ -297,7 +298,7 @@ public class UserRepository {
             stmt.setString(1, newPassword);
             stmt.setInt(2, userId);
             stmt.setString(3, oldPassword);
-    
+
             int rowsUpdated = stmt.executeUpdate();
             return rowsUpdated > 0; // Trả về true nếu đổi mật khẩu thành công
         }
@@ -310,7 +311,7 @@ public class UserRepository {
             stmt.setString(1, fullName);
             stmt.setString(2, email);
             stmt.setInt(3, userId);
-    
+
             int rowsUpdated = stmt.executeUpdate();
             return rowsUpdated > 0; // Trả về true nếu cập nhật thành công
         }

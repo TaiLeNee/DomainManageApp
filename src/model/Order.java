@@ -7,7 +7,6 @@ public class Order {
     private int id;
     private int buyerId;
     private int userId; // Thêm trường userId cho tương thích
-    private int domainId;
     private int rentalPeriodId; // Thêm trường cho gói thuê
     private String status; // Pending, Approved, Completed, Cancelled
     private LocalDateTime createdAt;
@@ -17,13 +16,13 @@ public class Order {
 
     // Constructors
     public Order() {
+        this.createdAt = LocalDateTime.now(); // Initialize with current date/time
     }
 
-    public Order(int id, int buyerId, int domainId, int rentalPeriodId,
-                 String status, LocalDateTime createdAt, LocalDateTime expiryDate, double totalPrice) {
+    public Order(int id, int buyerId, int rentalPeriodId,
+            String status, LocalDateTime createdAt, LocalDateTime expiryDate, double totalPrice) {
         this.id = id;
         this.buyerId = buyerId;
-        this.domainId = domainId;
         this.rentalPeriodId = rentalPeriodId;
         this.status = status;
         this.createdAt = createdAt;
@@ -58,13 +57,7 @@ public class Order {
         this.buyerId = userId; // Để đảm bảo tính nhất quán
     }
 
-    public int getDomainId() {
-        return domainId;
-    }
-
-    public void setDomainId(int domainId) {
-        this.domainId = domainId;
-    }
+    // Các phương thức getDomainId và setDomainId đã được loại bỏ
 
     public int getRentalPeriodId() {
         return rentalPeriodId;
