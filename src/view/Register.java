@@ -71,12 +71,12 @@ public class Register extends JFrame {
 	public Register() {
 		setTitle("Đăng ký - Quản lý tên miền");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		setSize(1000, 650);
+		setSize(1200, 750);
 		setLocationRelativeTo(null);
 		setResizable(false);
 
 		// Panel chính với BorderLayout
-		JPanel mainPanel = new JPanel(new BorderLayout());
+		JPanel mainPanel = new JPanel(new BorderLayout(0, 0));
 		mainPanel.setBackground(BACKGROUND_COLOR);
 
 		// Tạo panel bên trái với gradient và hình ảnh
@@ -136,7 +136,7 @@ public class Register extends JFrame {
 		// Tạo panel bên phải
 		JPanel rightPanel = new JPanel();
 		rightPanel.setBackground(BACKGROUND_COLOR);
-		rightPanel.setBorder(new EmptyBorder(40, 50, 40, 50));
+		rightPanel.setBorder(new EmptyBorder(60, 80, 60, 80));
 		rightPanel.setLayout(new GridBagLayout());
 		GridBagConstraints gbc = new GridBagConstraints();
 		gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -169,9 +169,9 @@ public class Register extends JFrame {
 		mainPanel.add(rightPanel, BorderLayout.CENTER);
 
 		// Đặt kích thước cho các panel
-		leftPanel.setPreferredSize(new Dimension(450, 650));
-		rightPanel.setPreferredSize(new Dimension(550, 650));
-
+		leftPanel.setPreferredSize(new Dimension(500, 750));
+		rightPanel.setPreferredSize(new Dimension(700, 750));
+		
 		setContentPane(mainPanel);
 
 		// Thiết lập các sự kiện
@@ -203,6 +203,7 @@ public class Register extends JFrame {
 		// Thêm các trường vào form
 		gbc.gridx = 0;
 		gbc.gridy = 0;
+		gbc.insets = new Insets(5, 0, 5, 0);
 		JLabel fullnameLabel = createStyledLabel("Họ và tên");
 		formPanel.add(fullnameLabel, gbc);
 
@@ -248,10 +249,6 @@ public class Register extends JFrame {
 		JPanel confirmPasswordPanel = createPasswordPanel(confirmPasswordField, "eye.png", "eye_off.png");
 		formPanel.add(confirmPasswordPanel, gbc);
 
-		gbc.gridy = 10;
-		gbc.insets = new Insets(10, 0, 20, 0);
-		formPanel.add(registerButton, gbc);
-
 		// Panel cho đường link đăng nhập
 		JPanel loginLinkPanel = new JPanel(new CustomFlowLayout(FlowLayout.CENTER));
 		loginLinkPanel.setOpaque(false);
@@ -268,9 +265,13 @@ public class Register extends JFrame {
 		loginLinkPanel.add(textLabel);
 		loginLinkPanel.add(linkLabel);
 
+		gbc.gridy = 10;
+		gbc.insets = new Insets(0, 0, 10, 0);
+		formPanel.add(loginLinkPanel, gbc);
+
 		gbc.gridy = 11;
 		gbc.insets = new Insets(0, 0, 0, 0);
-		formPanel.add(loginLinkPanel, gbc);
+		formPanel.add(registerButton, gbc);
 
 		// Sự kiện click vào đường link đăng nhập
 		linkLabel.addMouseListener(new MouseAdapter() {

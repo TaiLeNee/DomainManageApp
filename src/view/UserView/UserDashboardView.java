@@ -15,8 +15,6 @@ import java.util.Date;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
-import javax.swing.border.MatteBorder;
-
 import model.User;
 import repository.DatabaseConnection;
 import service.DomainExtensionService;
@@ -320,7 +318,7 @@ public class UserDashboardView extends JFrame {
         logoPanel.setPreferredSize(new Dimension(270, 80));
 
         // Logo and system name
-        JLabel logoIcon = new JLabel(new ImageIcon("src/img/domain_banner.png"));
+        JLabel logoIcon = new JLabel(new ImageIcon("src/img/null.png"));
         logoIcon.setBorder(new EmptyBorder(0, 25, 0, 15));
 
         JLabel logoLabel = new JLabel("DOMAIN MANAGER");
