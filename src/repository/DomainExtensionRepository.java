@@ -160,10 +160,10 @@ public class DomainExtensionRepository {
 
     public List<String[]> searchDomainWithExtensions(String domainName) throws SQLException {
         List<String[]> results = new ArrayList<>();
-        String sql = "SELECT CONCAT(?, extension) AS domain, " +
-                     "       CASE WHEN EXISTS (SELECT 1 FROM domains WHERE name = CONCAT(?, extension)) THEN N'Không khả dụng' ELSE N'Khả dụng' END AS status, " +
-                     "       default_price AS price " +
-                     "FROM domain_extensions";
+        String sql = "SELECT CONCAT(?, de.extension) AS domain, " +
+                     "       CASE WHEN EXISTS (SELECT 1 FROM domains d WHERE d.name = ? AND d.extension = de.extension AND (d.status = N'Đã thuê' OR d.status = N'Đã đặt' OR d.status = N'Đang xử lý')) THEN N'Không khả dụng' ELSE N'Khả dụng' END AS status, " +
+                     "       de.default_price AS price " +
+                     "FROM domain_extensions de";
     
         try (PreparedStatement stmt = connection.prepareStatement(sql)) {
             stmt.setString(1, domainName);

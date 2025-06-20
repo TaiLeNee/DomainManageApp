@@ -11,7 +11,6 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableRowSorter;
-
 import model.OrderDetails;
 import service.OrderDetailsService;
 import utils.UserSession;
@@ -572,10 +571,9 @@ public class OrdersPanel extends JPanel {
 
             // Add each domain to the table
             for (OrderDetails detail : orderDetailsList) {
-                // Format price to include VND - Use original price or individual domain price,
-                // not the total order price
-                String formattedPrice = String.format("%,.0f VND",
-                        detail.getOriginalPrice() > 0 ? detail.getOriginalPrice() : detail.getPrice());
+                // Format price to include VND - Use the price from the order details
+                // This is the individual domain price, not the total order price
+                String formattedPrice = String.format("%,.0f VND", detail.getPrice());
 
                 // Format date to be more readable
                 String formattedDate = detail.getPurchaseDate().format(formatter);
