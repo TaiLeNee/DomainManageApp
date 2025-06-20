@@ -537,17 +537,17 @@ public class PaymentDialog extends JDialog {
             // Lấy thông tin số tháng cho gói thuê đầu tiên
             int rentalMonths = getRentalMonthsFromId(firstRentalPeriodId);
 
-            String createOrderSQL = "INSERT INTO orders (buyer_id, domain_id, rental_period_id, status, created_at, expiry_date, total_price) VALUES (?, ?, ?, ?, GETDATE(), DATEADD(month, ?, GETDATE()), ?)";
+            // Fix: Removed domain_id from the SQL query as it doesn't exist in orders table
+            String createOrderSQL = "INSERT INTO orders (buyer_id, rental_period_id, status, created_at, expiry_date, total_price) VALUES (?, ?, ?, GETDATE(), DATEADD(month, ?, GETDATE()), ?)";
             int orderId = 0;
 
             try (PreparedStatement createOrderStmt = connection.prepareStatement(createOrderSQL,
                     Statement.RETURN_GENERATED_KEYS)) {
                 createOrderStmt.setInt(1, loggedInUser.getId());
-                createOrderStmt.setInt(2, firstDomainId);
-                createOrderStmt.setInt(3, firstRentalPeriodId);
-                createOrderStmt.setString(4, "Đang xử lý");
-                createOrderStmt.setInt(5, rentalMonths);
-                createOrderStmt.setDouble(6, totalPrice);
+                createOrderStmt.setInt(2, firstRentalPeriodId);
+                createOrderStmt.setString(3, "Đang xử lý");
+                createOrderStmt.setInt(4, rentalMonths);
+                createOrderStmt.setDouble(5, totalPrice);
                 createOrderStmt.executeUpdate();
 
                 try (ResultSet generatedKeys = createOrderStmt.getGeneratedKeys()) {

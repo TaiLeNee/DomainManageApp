@@ -77,7 +77,7 @@ public class OrderDetailsService {
                 return orderDetailsRepository.insert(orderDetails);
             }
         } catch (Exception e) {
-            System.err.println("Error creating order detail: " + e.getMessage());
+            System.err.println("Lỗi khi tạo chi tiết đơn hàng: " + e.getMessage());
             e.printStackTrace();
         }
         return false;
@@ -112,7 +112,7 @@ public class OrderDetailsService {
                 return orderDetailsRepository.update(details);
             }
         } catch (Exception e) {
-            System.err.println("Error updating order detail status: " + e.getMessage());
+            System.err.println("Lỗi khi cập nhật trạng thái chi tiết đơn hàng: " + e.getMessage());
             e.printStackTrace();
         }
         return false;
