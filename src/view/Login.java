@@ -33,6 +33,10 @@ public class Login extends JFrame {
 	private final Color ERROR_COLOR = new Color(204, 0, 0);
 
 	public Login() {
+		this(false); // Mặc định không phải từ logout
+	}
+	
+	public Login(boolean fromLogout) {
 		// Thiết lập cơ bản cho cửa sổ
 		setTitle("Đăng nhập - Hệ thống Quản lý Tên miền");
 		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -58,8 +62,10 @@ public class Login extends JFrame {
 		// Xử lý sự kiện đăng nhập
 		setupEventHandlers();
 		
-		// Tải thông tin đăng nhập đã lưu (nếu có)
-		loadSavedLoginInfo();
+		// Tải thông tin đăng nhập đã lưu (nếu có) - chỉ khi không phải từ logout
+		if (!fromLogout) {
+			loadSavedLoginInfo();
+		}
 	}
 
 	private JPanel createLeftPanel() {
@@ -377,34 +383,11 @@ public class Login extends JFrame {
 			
 			// Tự động đăng nhập nếu thông tin đã được lưu
 			if (!loginInfo.getUsername().isEmpty() && !loginInfo.getPassword().isEmpty()) {
-				// Đặt flag để ẩn cửa sổ
+				// Đặt flag để ẩn cứa sổ
 				isAutoLogin = true;
 				
-				// Sử dụng SwingUtilities.invokeLater để đảm bảo cửa sổ Login hiển thị xong mới hiện hộp thoại
-				SwingUtilities.invokeLater(() -> {
-					// Ẩn cửa sổ trước khi hiển thị dialog
-					this.setVisible(false);
-					
-					int option = JOptionPane.showConfirmDialog(
-						null, // Sử dụng null thay vì this để dialog không phụ thuộc vào cửa sổ Login
-						"Bạn có muốn tự động đăng nhập với tài khoản đã lưu không?",
-						"Tự động đăng nhập",
-						JOptionPane.YES_NO_OPTION,
-						JOptionPane.QUESTION_MESSAGE
-					);
-					
-					if (option == JOptionPane.YES_OPTION) {
-						performAutoLogin();
-					} else {
-						// Nếu chọn NO, xóa hoàn toàn thông tin đã lưu và hiển thị lại cửa sổ login
-						utils.LoginPreferences.clearLoginInfo(); // Xóa thông tin trong file
-						isAutoLogin = false;
-						this.setVisible(true);
-						usernameField.setText("");
-						passwordField.setText("");
-						rememberMeCheckbox.setSelected(false);
-					}
-				});
+				// Tự động đăng nhập luôn không cần hiển thị cửa sổ
+				performAutoLogin();
 			}
 		}
 	}
@@ -414,25 +397,23 @@ public class Login extends JFrame {
 		String password = new String(passwordField.getPassword());
 		
 		if (authenticateUser(username, password)) {
-			// Đóng cửa sổ login hoàn toàn
-			this.dispose();
-			
+			// Không hiển thị cửa sổ login khi auto login thành công
 			// Chuyển hướng đến giao diện tương ứng
 			utils.UserSession userSession = utils.UserSession.getInstance();
 			User currentUser = userSession.getCurrentUser();
 
-			SwingUtilities.invokeLater(() -> {
-				if (userSession.isAdmin()) {
-					AdminDashboardView adminView = new AdminDashboardView(currentUser.getFullName(),
-							currentUser.getRole());
-					adminView.setVisible(true);
-				} else if (userSession.isUser()) {
-					view.UserView.UserDashboardView userView = new view.UserView.UserDashboardView();
-					userView.setVisible(true);
-				}
-			});
+			if (userSession.isAdmin()) {
+				AdminDashboardView adminView = new AdminDashboardView(currentUser.getFullName(),
+						currentUser.getRole());
+				adminView.setVisible(true);
+				this.dispose(); // Đóng cửa sổ login
+			} else if (userSession.isUser()) {
+				view.UserView.UserDashboardView userView = new view.UserView.UserDashboardView();
+				userView.setVisible(true);
+				this.dispose(); // Đóng cửa sổ login
+			}
 		} else {
-			// Nếu đăng nhập thất bại, hiển thị lại cửa sổ login
+			// Nếu đăng nhập thất bại, hiển thị cửa sổ login
 			isAutoLogin = false;
 			this.setVisible(true);
 			JOptionPane.showMessageDialog(
@@ -479,7 +460,10 @@ public class Login extends JFrame {
 			@Override
 			public void run() {
 				Login loginForm = new Login();
-				loginForm.setVisible(true);
+				// Chỉ hiển thị cửa sổ nếu không có auto login
+				if (!loginForm.isAutoLogin) {
+					loginForm.setVisible(true);
+				}
 			}
 		});
 	}
