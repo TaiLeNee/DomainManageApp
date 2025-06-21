@@ -63,10 +63,13 @@ public class UserDashboardView extends JFrame {
         this.loggedInUser = UserSession.getInstance().getCurrentUser();
 
         if (loggedInUser == null) {
+            // Xóa thông tin ghi nhớ đăng nhập khi session hết hạn
+            utils.LoginPreferences.clearLoginInfo();
+            
             JOptionPane.showMessageDialog(this, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", "Thông báo",
                     JOptionPane.WARNING_MESSAGE);
             dispose();
-            new view.Login().setVisible(true);
+            new view.Login(true).setVisible(true); // Truyền true để báo là từ logout
             return;
         }
 
@@ -488,36 +491,16 @@ public class UserDashboardView extends JFrame {
      * Log out the user.
      */
     private void logout() {
-        // Modern confirmation dialog
-        JPanel confirmPanel = new JPanel(new BorderLayout(15, 10));
-        confirmPanel.setBackground(Color.WHITE);
-        confirmPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
+        // Đăng xuất trực tiếp không cần xác nhận
+        // Clear the current user session
+        UserSession.getInstance().clearSession();
+        
+        // Xóa thông tin ghi nhớ đăng nhập khi đăng xuất
+        utils.LoginPreferences.clearLoginInfo();
 
-        JLabel iconLabel = new JLabel(new ImageIcon("src/img/question.png"));
-        JLabel messageLabel = new JLabel("Bạn chắc chắn muốn đăng xuất?");
-        messageLabel.setFont(FONT_SUBTITLE);
-
-        confirmPanel.add(iconLabel, BorderLayout.WEST);
-        confirmPanel.add(messageLabel, BorderLayout.CENTER);
-
-        // Customize dialog buttons
-        UIManager.put("OptionPane.buttonFont", FONT_BUTTON);
-
-        int confirm = JOptionPane.showConfirmDialog(
-                this,
-                confirmPanel,
-                "Xác nhận đăng xuất",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.PLAIN_MESSAGE);
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            // Clear the current user session
-            UserSession.getInstance().clearSession();
-
-            // Return to the login screen
-            dispose();
-            new view.Login().setVisible(true);
-        }
+        // Return to the login screen
+        dispose();
+        new view.Login(true).setVisible(true); // Truyền true để báo là từ logout
     }
 
     /**

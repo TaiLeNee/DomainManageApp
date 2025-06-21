@@ -625,36 +625,16 @@ public class AdminDashboardView extends JFrame {
     }
 
     private void logout() {
-        // Dialog xác nhận đăng xuất với thiết kế mới
-        JPanel confirmPanel = new JPanel(new BorderLayout(15, 10));
-        confirmPanel.setBackground(Color.WHITE);
-        confirmPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
+        // Đăng xuất trực tiếp không cần xác nhận
+        // Xóa thông tin đăng nhập hiện tại
+        UserSession.getInstance().clearSession();
+        
+        // Xóa thông tin ghi nhớ đăng nhập khi đăng xuất
+        utils.LoginPreferences.clearLoginInfo();
 
-        JLabel iconLabel = new JLabel(new ImageIcon("src/img/question.png"));
-        JLabel messageLabel = new JLabel("Bạn chắc chắn muốn đăng xuất?");
-        messageLabel.setFont(FONT_SUBTITLE);
-
-        confirmPanel.add(iconLabel, BorderLayout.WEST);
-        confirmPanel.add(messageLabel, BorderLayout.CENTER);
-
-        // Tùy chỉnh các nút của dialog
-        UIManager.put("OptionPane.buttonFont", FONT_BUTTON);
-
-        int confirm = JOptionPane.showConfirmDialog(
-                this,
-                confirmPanel,
-                "Xác nhận đăng xuất",
-                JOptionPane.YES_NO_OPTION,
-                JOptionPane.PLAIN_MESSAGE);
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            // Xóa thông tin đăng nhập hiện tại
-            UserSession.getInstance().clearSession();
-
-            this.dispose();
-            Login loginForm = new Login();
-            loginForm.setVisible(true);
-        }
+        this.dispose();
+        Login loginForm = new Login(true); // Truyền true để báo là từ logout
+        loginForm.setVisible(true);
     }
 
     public static void main(String[] args) {
