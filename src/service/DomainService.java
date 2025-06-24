@@ -251,10 +251,34 @@ public class DomainService {
 
     // Phương thức để tính giá thuê cho một khoảng thời gian cụ thể
     public double calculatePriceForPeriod(double basePrice, int months) {
+        // Validation để tránh overflow
+        if (basePrice < 0 || months <= 0) {
+            throw new IllegalArgumentException("Base price và months phải là số dương");
+        }
+        
+        // Kiểm tra overflow trước khi tính toán
+        if (basePrice > 999999999.99 / months) {
+            throw new IllegalArgumentException("Giá tính toán quá lớn, vượt quá giới hạn cho phép");
+        }
+
         try {
             Optional<RentalPeriod> period = rentalPeriodRepository.findByMonths(months);
             if (period.isPresent()) {
-                return basePrice * months * (1 - period.get().getDiscount());
+                double discount = period.get().getDiscount();
+                // Kiểm tra discount hợp lệ
+                if (discount < 0 || discount >= 1) {
+                    System.err.println("Invalid discount value: " + discount + ". Using no discount.");
+                    discount = 0;
+                }
+                
+                double result = basePrice * months * (1 - discount);
+                
+                // Kiểm tra kết quả không vượt quá giới hạn DECIMAL(15,2)
+                if (result > 9999999999999.99) {
+                    throw new IllegalArgumentException("Giá tính toán quá lớn: " + result);
+                }
+                
+                return result;
             }
         } catch (SQLException e) {
             System.err.println("Error calculating price for period: " + e.getMessage());
@@ -262,7 +286,14 @@ public class DomainService {
         }
 
         // Nếu không tìm thấy giảm giá, trả về giá đầy đủ
-        return basePrice * months;
+        double result = basePrice * months;
+        
+        // Kiểm tra kết quả không vượt quá giới hạn
+        if (result > 9999999999999.99) {
+            throw new IllegalArgumentException("Giá tính toán quá lớn: " + result);
+        }
+        
+        return result;
     }
 
     // Get rental discount information for displaying in UI
@@ -293,6 +324,13 @@ public class DomainService {
     public boolean createOrderForCart(int userId, double totalPrice, List<Domain> cartDomains) {
         if (cartDomains == null || cartDomains.isEmpty()) {
             return false;
+        }
+
+        // Validate cart before processing - make sure all domains are still available
+        java.util.List<String> unavailableDomains = validateAndCleanupCart(userId);
+        if (!unavailableDomains.isEmpty()) {
+            System.err.println("Some domains in cart are no longer available: " + unavailableDomains);
+            return false; // Cart validation failed
         }
 
         try (Connection connection = DatabaseConnection.getConnection()) {
@@ -356,7 +394,14 @@ public class DomainService {
 
                     RentalPeriod period = periodOpt.get();
 
-                    // Calculate original and discounted price
+                    // Calculate original and discounted price with validation
+                    if (!utils.ValidationUtils.isValidPriceCalculation(domain.getPrice(), period.getMonths(), period.getDiscount())) {
+                        System.err.println("Invalid price calculation for domain " + domain.getName() + domain.getExtension() + 
+                                         ". Price: " + domain.getPrice() + ", Months: " + period.getMonths() + 
+                                         ", Discount: " + period.getDiscount());
+                        continue; // Skip this domain if calculation would overflow
+                    }
+                    
                     double originalPrice = domain.getPrice() * period.getMonths();
                     double discountedPrice = calculatePriceForPeriod(domain.getPrice(), period.getMonths());
 
@@ -455,6 +500,107 @@ public class DomainService {
         } catch (SQLException e) {
             System.err.println("Error deleting domain from cart: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Remove domain from all users' carts (used when domain is approved for purchase)
+     * This prevents conflicts when multiple users have the same domain in their cart
+     * 
+     * @param domainName The name of the domain (without extension)
+     * @param domainExtension The extension of the domain (with dot)
+     */
+    public void removeDomainFromAllCarts(String domainName, String domainExtension) {
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            // Use stored procedure for better performance
+            String callProcedure = "{call RemoveDomainFromAllCarts(?, ?)}";
+            try (java.sql.CallableStatement stmt = connection.prepareCall(callProcedure)) {
+                stmt.setString(1, domainName);
+                stmt.setString(2, domainExtension);
+                
+                try (java.sql.ResultSet rs = stmt.executeQuery()) {
+                    if (rs.next()) {
+                        int deletedRows = rs.getInt("DeletedRows");
+                        if (deletedRows > 0) {
+                            System.out.println("Removed domain " + domainName + domainExtension + 
+                                             " from " + deletedRows + " user cart(s) to prevent conflicts.");
+                            
+                            // Log the conflict for admin review
+                            logDomainConflict(domainName, domainExtension, deletedRows);
+                        }
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error removing domain from all carts: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Validate and clean up cart before checkout
+     * Removes domains that are no longer available
+     * 
+     * @param userId User ID to validate cart for
+     * @return List of domain names that were removed due to unavailability
+     */
+    public java.util.List<String> validateAndCleanupCart(int userId) {
+        java.util.List<String> removedDomains = new java.util.ArrayList<>();
+        
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            // First get list of unavailable domains in cart
+            String validateCall = "{call ValidateCartDomains(?)}";
+            try (java.sql.CallableStatement validateStmt = connection.prepareCall(validateCall)) {
+                validateStmt.setInt(1, userId);
+                
+                try (java.sql.ResultSet rs = validateStmt.executeQuery()) {
+                    while (rs.next()) {
+                        String domainName = rs.getString("full_domain_name");
+                        String status = rs.getString("status");
+                        removedDomains.add(domainName + " (Trạng thái: " + status + ")");
+                    }
+                }
+            }
+            
+            // Clean up unavailable domains from cart if any found
+            if (!removedDomains.isEmpty()) {
+                String cleanupCall = "{call CleanupUnavailableDomainsFromCart(?)}";
+                try (java.sql.CallableStatement cleanupStmt = connection.prepareCall(cleanupCall)) {
+                    cleanupStmt.setInt(1, userId);
+                    cleanupStmt.executeQuery();
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error validating cart: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        return removedDomains;
+    }
+
+    /**
+     * Log domain conflicts for admin review
+     * 
+     * @param domainName The domain name that caused conflict
+     * @param domainExtension The domain extension
+     * @param removedFromUserCount Number of users affected
+     */
+    private void logDomainConflict(String domainName, String domainExtension, int removedFromUserCount) {
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            // Create a simple log entry in the database for admin to review conflicts
+            String insertLog = "INSERT INTO domain_conflict_log (domain_name, domain_extension, " +
+                             "users_affected, conflict_date) VALUES (?, ?, ?, GETDATE())";
+            
+            try (java.sql.PreparedStatement stmt = connection.prepareStatement(insertLog)) {
+                stmt.setString(1, domainName);
+                stmt.setString(2, domainExtension);
+                stmt.setInt(3, removedFromUserCount);
+                stmt.executeUpdate();
+            }
+        } catch (SQLException e) {
+            // If log table doesn't exist, just print to console
+            System.out.println("DOMAIN CONFLICT LOG: " + domainName + domainExtension + 
+                             " removed from " + removedFromUserCount + " user(s) cart");
         }
     }
 }

@@ -321,11 +321,14 @@ public class OrderRepository {
 
                 RentalPeriodRepository rentalPeriodRepo = new RentalPeriodRepository(connection);
                 DomainRepository domainRepo = new DomainRepository(connection);
+                service.DomainService domainService = new service.DomainService(connection);
 
                 java.util.Date currentDate = new java.util.Date();
 
                 // Cập nhật từng tên miền trong đơn hàng với thời hạn thuê tương ứng
                 for (model.OrderDetails detail : orderDetails) {
+                    // Xóa domain khỏi giỏ hàng của tất cả users khác để tránh conflict
+                    domainService.removeDomainFromAllCarts(detail.getDomainName(), detail.getDomainExtension());
                     // Lấy thông tin về rental period
                     int rentalPeriodId = detail.getRentalPeriodId();
                     int months = 1; // Mặc định 1 tháng

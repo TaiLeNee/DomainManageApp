@@ -25,23 +25,23 @@ CREATE TABLE users (
 );
 GO
 
--- Bảng domains
+-- Bảng domains - Tăng precision cho price
 CREATE TABLE domains (
     id INT IDENTITY(1,1) PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     extension VARCHAR(20) NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
+    price DECIMAL(15, 2) NOT NULL CHECK (price >= 0 AND price <= 999999999.99),
     status NVARCHAR(20) NOT NULL, 
     expiry_date DATETIME NULL,
     CONSTRAINT UQ_domain_name_extension UNIQUE (name, extension)
 );
 GO
 
--- Bảng domain_extensions
+-- Bảng domain_extensions - Tăng precision cho default_price
 CREATE TABLE domain_extensions (
     id INT IDENTITY(1,1) PRIMARY KEY,
     extension VARCHAR(20) UNIQUE NOT NULL,
-    default_price DECIMAL(10, 2) NOT NULL,
+    default_price DECIMAL(15, 2) NOT NULL CHECK (default_price >= 0 AND default_price <= 999999999.99),
     description NVARCHAR(255) NULL
 );
 GO
@@ -49,14 +49,14 @@ GO
 -- Bảng rental_periods
 CREATE TABLE rental_periods (
     id INT IDENTITY(1,1) PRIMARY KEY,
-    months INT NOT NULL,
-    discount DECIMAL(5, 2) NOT NULL,
+    months INT NOT NULL CHECK (months > 0 AND months <= 120),
+    discount DECIMAL(5, 2) NOT NULL CHECK (discount >= 0 AND discount < 1),
     description NVARCHAR(255) NOT NULL,
     CONSTRAINT UQ_rental_period_months UNIQUE (months)
 );
 GO
 
--- Bảng orders
+-- Bảng orders - Tăng precision cho total_price
 CREATE TABLE orders (
     id INT IDENTITY(1,1) PRIMARY KEY,
     buyer_id INT NOT NULL,
@@ -64,20 +64,21 @@ CREATE TABLE orders (
     status NVARCHAR(20) NOT NULL, 
     created_at DATETIME DEFAULT GETDATE(),
     expiry_date DATETIME NOT NULL,
-    total_price DECIMAL(10, 2) NOT NULL,
+    total_price DECIMAL(15, 2) NOT NULL CHECK (total_price >= 0),
     FOREIGN KEY (buyer_id) REFERENCES users(id),
     FOREIGN KEY (rental_period_id) REFERENCES rental_periods(id)
 );
 GO
 
--- Bảng order_details - Lưu trữ giá riêng của từng tên miền trong đơn hàng
+-- Bảng order_details - Tăng precision cho price và original_price
 CREATE TABLE order_details (
     id INT IDENTITY(1,1) PRIMARY KEY,
     order_id INT NOT NULL,
     domain_id INT NOT NULL,
     domain_name VARCHAR(100) NOT NULL,
     domain_extension VARCHAR(20) NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
+    price DECIMAL(15, 2) NOT NULL CHECK (price >= 0),
+    original_price DECIMAL(15, 2) NULL CHECK (original_price >= 0),
     purchase_date DATETIME DEFAULT GETDATE(),
     expiry_date DATETIME NULL,
     rental_period_id INT NULL,
@@ -88,29 +89,30 @@ CREATE TABLE order_details (
 );
 GO
 
--- Bảng transactions
+-- Bảng transactions - Tăng precision cho total
 CREATE TABLE transactions (
     id INT IDENTITY(1,1) PRIMARY KEY,
     order_id INT NOT NULL,
     domain_id INT NOT NULL,
-    total DECIMAL(10, 2) NOT NULL,
+    total DECIMAL(15, 2) NOT NULL CHECK (total >= 0),
     timestamp DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (order_id) REFERENCES orders(id),
     FOREIGN KEY (domain_id) REFERENCES domains(id)
 );
 GO
 
--- Bảng cart	
+-- Bảng cart - Tăng precision cho price và discounted_price
 CREATE TABLE cart (
     id INT IDENTITY(1,1) PRIMARY KEY,
     user_id INT NOT NULL,
     domain_id INT NOT NULL,
-    price DECIMAL(10, 2) NOT NULL,
+    price DECIMAL(15, 2) NOT NULL CHECK (price >= 0),
     rental_period_id INT NULL,
-    discounted_price DECIMAL(10, 2) NULL,
+    discounted_price DECIMAL(15, 2) NULL CHECK (discounted_price >= 0),
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (domain_id) REFERENCES domains(id),
-    FOREIGN KEY (rental_period_id) REFERENCES rental_periods(id)
+    FOREIGN KEY (rental_period_id) REFERENCES rental_periods(id),
+    CONSTRAINT UQ_cart_user_domain UNIQUE (user_id, domain_id)
 );
 GO
 
@@ -120,7 +122,8 @@ GO
 INSERT INTO users (fullname, username, password, email, role)
 VALUES
     (N'Lê Công Tài', '1', '1', 'admin@domain.com', 'admin'),
-    (N'Nguyễn Văn A', '2', '2', 'user1@domain.com', 'user');
+    (N'Nguyễn Văn A', '2', '2', 'user1@domain.com', 'user'),
+	(N'Nguyễn Văn B', '3', '3', 'user2@domain.com', 'user');
 
 -- Thêm dữ liệu cho bảng domain_extensions
 INSERT INTO domain_extensions (extension, default_price, description)
@@ -217,10 +220,10 @@ CREATE PROCEDURE CreateDomainOrder
     @rentalPeriodId INT
 AS
 BEGIN
-    DECLARE @domainPrice DECIMAL(10, 2);
+    DECLARE @domainPrice DECIMAL(15, 2);
     DECLARE @discount DECIMAL(5, 2);
     DECLARE @months INT;
-    DECLARE @totalPrice DECIMAL(10, 2);
+    DECLARE @totalPrice DECIMAL(15, 2);
     DECLARE @expiryDate DATETIME;
     DECLARE @orderId INT;
     DECLARE @domainName VARCHAR(100);
@@ -301,7 +304,7 @@ BEGIN
     
     -- Biến để lưu ID của đơn hàng mới
     DECLARE @orderId INT;
-    DECLARE @totalOrderPrice DECIMAL(10, 2) = 0;
+    DECLARE @totalOrderPrice DECIMAL(15, 2) = 0;
     
     -- Lấy tổng giá trị đơn hàng
     SELECT @totalOrderPrice = SUM(ISNULL(discounted_price, price))
@@ -366,4 +369,215 @@ BEGIN
     -- Trả về ID của đơn hàng đã tạo
     SELECT @orderId AS OrderId, @totalOrderPrice AS TotalPrice;
 END;
+GO
+
+-- Thủ tục xóa domain khỏi giỏ hàng của tất cả users (sử dụng khi admin duyệt đơn hàng)
+CREATE PROCEDURE RemoveDomainFromAllCarts
+    @domainName VARCHAR(100),
+    @domainExtension VARCHAR(20)
+AS
+BEGIN
+    DECLARE @domainId INT;
+    DECLARE @deletedRows INT = 0;
+    
+    -- Tìm domain ID dựa trên tên và extension
+    SELECT @domainId = id 
+    FROM domains 
+    WHERE name = @domainName AND extension = @domainExtension;
+    
+    -- Nếu tìm thấy domain, xóa khỏi tất cả cart
+    IF @domainId IS NOT NULL
+    BEGIN
+        DELETE FROM cart WHERE domain_id = @domainId;
+        SET @deletedRows = @@ROWCOUNT;
+    END
+    
+    -- Trả về số lượng dòng đã xóa
+    SELECT @deletedRows AS DeletedRows;
+END;
+GO
+
+-- Thủ tục kiểm tra domain trong cart còn available không trước khi checkout
+CREATE PROCEDURE ValidateCartDomains
+    @userId INT
+AS
+BEGIN
+    -- Trả về danh sách domains trong cart không còn available
+    SELECT 
+        d.name + d.extension as full_domain_name,
+        d.status,
+        CASE 
+            WHEN d.status != N'Sẵn sàng' THEN N'Tên miền đã được đặt hoặc không còn khả dụng'
+            ELSE N'OK'
+        END as validation_message
+    FROM cart c
+    JOIN domains d ON c.domain_id = d.id
+    WHERE c.user_id = @userId
+      AND d.status != N'Sẵn sàng';
+END;
+GO
+
+-- Thủ tục xóa domains không available khỏi cart của user
+CREATE PROCEDURE CleanupUnavailableDomainsFromCart
+    @userId INT
+AS
+BEGIN
+    DECLARE @deletedRows INT = 0;
+    
+    -- Xóa các domain không còn available khỏi cart
+    DELETE c
+    FROM cart c
+    JOIN domains d ON c.domain_id = d.id
+    WHERE c.user_id = @userId
+      AND d.status != N'Sẵn sàng';
+    
+    SET @deletedRows = @@ROWCOUNT;
+    
+    -- Trả về số lượng domain đã bị xóa
+    SELECT @deletedRows AS DeletedRows;
+END;
+GO
+
+-- Bảng log để theo dõi các conflict domains (tùy chọn - để admin theo dõi)
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='domain_conflict_log' AND xtype='U')
+BEGIN
+    CREATE TABLE domain_conflict_log (
+        id INT IDENTITY(1,1) PRIMARY KEY,
+        domain_name VARCHAR(100) NOT NULL,
+        domain_extension VARCHAR(20) NOT NULL,
+        users_affected INT NOT NULL,
+        conflict_date DATETIME DEFAULT GETDATE(),
+        resolution_status NVARCHAR(50) DEFAULT N'Chờ xử lý'
+    );
+END;
+GO
+
+-- Thủ tục kiểm tra và sửa dữ liệu có thể gây overflow
+CREATE PROCEDURE CheckAndFixOverflowData
+AS
+BEGIN
+    DECLARE @affectedRows INT = 0;
+    
+    -- Kiểm tra domains có giá quá lớn
+    SELECT @affectedRows = COUNT(*) 
+    FROM domains 
+    WHERE price > 999999999.99 OR price < 0;
+    
+    IF @affectedRows > 0
+    BEGIN
+        PRINT 'Tìm thấy ' + CAST(@affectedRows AS VARCHAR) + ' domain(s) có giá không hợp lệ.';
+        
+        -- Cập nhật giá quá lớn về giá mặc định
+        UPDATE domains 
+        SET price = 100000.00 
+        WHERE price > 999999999.99 OR price < 0;
+        
+        PRINT 'Đã cập nhật giá domain về mức mặc định.';
+    END
+    
+    -- Kiểm tra order_details có giá quá lớn
+    SELECT @affectedRows = COUNT(*) 
+    FROM order_details 
+    WHERE price > 9999999999999.99 OR price < 0 
+       OR (original_price IS NOT NULL AND (original_price > 9999999999999.99 OR original_price < 0));
+    
+    IF @affectedRows > 0
+    BEGIN
+        PRINT 'Tìm thấy ' + CAST(@affectedRows AS VARCHAR) + ' order detail(s) có giá không hợp lệ.';
+        
+        -- Cập nhật giá quá lớn
+        UPDATE order_details 
+        SET price = 100000.00,
+            original_price = CASE WHEN original_price > 9999999999999.99 OR original_price < 0 
+                                THEN 100000.00 
+                                ELSE original_price END
+        WHERE price > 9999999999999.99 OR price < 0 
+           OR (original_price IS NOT NULL AND (original_price > 9999999999999.99 OR original_price < 0));
+        
+        PRINT 'Đã cập nhật giá order details về mức hợp lệ.';
+    END
+    
+    -- Kiểm tra cart có giá quá lớn
+    SELECT @affectedRows = COUNT(*) 
+    FROM cart 
+    WHERE price > 9999999999999.99 OR price < 0 
+       OR (discounted_price IS NOT NULL AND (discounted_price > 9999999999999.99 OR discounted_price < 0));
+    
+    IF @affectedRows > 0
+    BEGIN
+        PRINT 'Tìm thấy ' + CAST(@affectedRows AS VARCHAR) + ' cart item(s) có giá không hợp lệ.';
+        
+        -- Cập nhật giá quá lớn trong cart
+        UPDATE cart 
+        SET price = 100000.00,
+            discounted_price = CASE WHEN discounted_price > 9999999999999.99 OR discounted_price < 0 
+                                  THEN 100000.00 
+                                  ELSE discounted_price END
+        WHERE price > 9999999999999.99 OR price < 0 
+           OR (discounted_price IS NOT NULL AND (discounted_price > 9999999999999.99 OR discounted_price < 0));
+        
+        PRINT 'Đã cập nhật giá cart về mức hợp lệ.';
+    END
+    
+    PRINT 'Hoàn thành kiểm tra và sửa dữ liệu overflow.';
+END;
+GO
+
+-- =====================================================
+-- MIGRATION: Cập nhật bảng cart với unique constraint
+-- =====================================================
+
+-- Bước 1: Xóa các bản ghi duplicate trong cart (giữ lại bản ghi có id nhỏ nhất)
+WITH DuplicateRecords AS (
+    SELECT user_id, domain_id, 
+           ROW_NUMBER() OVER (PARTITION BY user_id, domain_id ORDER BY id) as rn
+    FROM cart
+)
+DELETE FROM cart 
+WHERE EXISTS (
+    SELECT 1 FROM DuplicateRecords d 
+    WHERE d.user_id = cart.user_id 
+    AND d.domain_id = cart.domain_id 
+    AND d.rn > 1
+    AND cart.id IN (
+        SELECT c2.id FROM cart c2
+        JOIN DuplicateRecords d2 ON c2.user_id = d2.user_id AND c2.domain_id = d2.domain_id
+        WHERE d2.rn > 1
+    )
+);
+GO
+
+-- Bước 2: Thêm unique constraint nếu chưa tồn tại
+IF NOT EXISTS (SELECT * FROM sys.key_constraints WHERE name = 'UQ_cart_user_domain')
+BEGIN
+    ALTER TABLE cart ADD CONSTRAINT UQ_cart_user_domain UNIQUE (user_id, domain_id);
+    PRINT 'Đã thêm unique constraint UQ_cart_user_domain vào bảng cart';
+END
+ELSE
+BEGIN
+    PRINT 'Unique constraint UQ_cart_user_domain đã tồn tại';
+END
+GO
+
+-- Bước 3: Kiểm tra kết quả migration
+DECLARE @duplicateCount INT;
+SELECT @duplicateCount = COUNT(*)
+FROM (
+    SELECT user_id, domain_id, COUNT(*) as count
+    FROM cart 
+    GROUP BY user_id, domain_id 
+    HAVING COUNT(*) > 1
+) duplicates;
+
+IF @duplicateCount = 0
+BEGIN
+    PRINT 'Migration thành công - Không còn bản ghi duplicate trong bảng cart';
+END
+ELSE
+BEGIN
+    PRINT 'CẢNH BÁO: Vẫn còn ' + CAST(@duplicateCount AS VARCHAR) + ' nhóm bản ghi duplicate';
+END
+GO
+
+PRINT '=== HOÀN THÀNH MIGRATION DATABASE ===';
 GO

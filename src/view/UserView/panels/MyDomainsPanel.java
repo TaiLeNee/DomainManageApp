@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import model.Domain;
@@ -256,6 +257,22 @@ public class MyDomainsPanel extends JPanel {
 
         // Set up a table model for combo box in rental period column
         domainsTable.getColumnModel().getColumn(4).setCellEditor(new DefaultCellEditor(createRentalPeriodComboBox()));
+
+        // Add double-click listener for editing rental period
+        domainsTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int row = domainsTable.rowAtPoint(e.getPoint());
+                    int col = domainsTable.columnAtPoint(e.getPoint());
+                    
+                    // Allow editing on any column except action column
+                    if (row >= 0 && row < cartDomains.size() && col != 5) {
+                        editDomainRentalPeriod(row);
+                    }
+                }
+            }
+        });
 
         // Create modern scrollpane
         JScrollPane scrollPane = new JScrollPane(domainsTable);
@@ -666,25 +683,80 @@ public class MyDomainsPanel extends JPanel {
             return;
         }
 
-        // Add checkout confirmation and processing logic here
-        int option = JOptionPane.showConfirmDialog(
-                this,
-                "Tiến hành thanh toán " + cartDomains.size() + " tên miền với tổng số tiền " + totalPriceLabel.getText()
-                        + "?",
-                "Xác nhận thanh toán",
-                JOptionPane.YES_NO_OPTION);
-
-        if (option != JOptionPane.YES_OPTION) {
+        // Validate cart and remove unavailable domains
+        java.util.List<String> removedDomains = domainService.validateAndCleanupCart(currentUser.getId());
+        
+        if (!removedDomains.isEmpty()) {
+            StringBuilder message = new StringBuilder();
+            message.append("Một số tên miền trong giỏ hàng của bạn đã không còn khả dụng và đã được xóa:\n\n");
+            for (String domain : removedDomains) {
+                message.append("• ").append(domain).append("\n");
+            }
+            message.append("\nVui lòng kiểm tra lại giỏ hàng trước khi thanh toán.");
+            
+            JOptionPane.showMessageDialog(
+                    this,
+                    message.toString(),
+                    "Thông báo",
+                    JOptionPane.WARNING_MESSAGE);
+            
+            // Reload cart data after cleanup
+            loadDomainsFromDatabase();
             return;
         }
 
-        // Show checkout dialog
-        JDialog checkoutDialog = createCheckoutDialog();
-        checkoutDialog.setVisible(true);
+        // Prepare data for PaymentDialog
+        String[] selectedDomains = new String[cartDomains.size()];
+        HashMap<String, Double> domainPrices = new HashMap<>();
+        HashMap<String, Integer> domainRentalPeriods = new HashMap<>();
+
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            for (int i = 0; i < cartDomains.size(); i++) {
+                Domain domain = cartDomains.get(i);
+                String domainName = domain.getName() + domain.getExtension();
+                selectedDomains[i] = domainName;
+
+                // Get rental period and calculate price
+                String query = "SELECT c.rental_period_id, rp.months, rp.discount FROM cart c " +
+                             "JOIN rental_periods rp ON c.rental_period_id = rp.id " +
+                             "WHERE c.user_id = ? AND c.domain_id = ?";
+                
+                try (PreparedStatement stmt = connection.prepareStatement(query)) {
+                    stmt.setInt(1, currentUser.getId());
+                    stmt.setInt(2, domain.getId());
+                    ResultSet rs = stmt.executeQuery();
+                    
+                    if (rs.next()) {
+                        int rentalPeriodId = rs.getInt("rental_period_id");
+                        int months = rs.getInt("months");
+                        double discount = rs.getDouble("discount");
+                        
+                        double basePrice = domain.getPrice();
+                        double originalPrice = basePrice * months;
+                        double finalPrice = originalPrice * (1 - discount);
+                        
+                        domainPrices.put(domainName, finalPrice);
+                        domainRentalPeriods.put(domainName, rentalPeriodId);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                    "Lỗi khi chuẩn bị dữ liệu thanh toán: " + e.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // Show PaymentDialog
+        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(this);
+        PaymentDialog paymentDialog = new PaymentDialog(parentFrame, selectedDomains, domainPrices, domainRentalPeriods, this);
+        paymentDialog.setVisible(true);
     }
 
     /**
-     * Create a modern checkout dialog
+     * Create a modern checkout dialog (DEPRECATED - Now using PaymentDialog)
      */
     private JDialog createCheckoutDialog() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Thanh toán", true);
@@ -953,7 +1025,8 @@ public class MyDomainsPanel extends JPanel {
                 if (rs.next() && rs.getInt(1) > 0) {
                     JOptionPane.showMessageDialog(
                             this,
-                            "Tên miền này đã có trong giỏ hàng của bạn.",
+                            "❗ Tên miền " + domain.getName() + domain.getExtension() + " đã có trong giỏ hàng của bạn!\n\n" +
+                            "💡 Tip: Bạn có thể đúp chuột vào tên miền trong giỏ hàng để chỉnh sửa thời gian thuê.",
                             "Thông báo",
                             JOptionPane.INFORMATION_MESSAGE);
                     return;
@@ -965,14 +1038,15 @@ public class MyDomainsPanel extends JPanel {
             try (PreparedStatement insertStmt = connection.prepareStatement(insertQuery)) {
                 insertStmt.setInt(1, currentUser.getId());
                 insertStmt.setInt(2, domain.getId());
-                insertStmt.setInt(3, 1); // Default to 1 year rental period
+                insertStmt.setInt(3, 1); // Default to 1 month rental period (id=1)
 
                 int result = insertStmt.executeUpdate();
 
                 if (result > 0) {
                     JOptionPane.showMessageDialog(
                             this,
-                            "Đã thêm tên miền " + domain.getName() + domain.getExtension() + " vào giỏ hàng.",
+                            "✅ Đã thêm tên miền " + domain.getName() + domain.getExtension() + " vào giỏ hàng!\n\n" +
+                            "💡 Tip: Đúp chuột vào tên miền để chỉnh sửa thời gian thuê.",
                             "Thành công",
                             JOptionPane.INFORMATION_MESSAGE);
 
@@ -988,11 +1062,20 @@ public class MyDomainsPanel extends JPanel {
             }
         } catch (SQLException e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(
-                    this,
-                    "Lỗi khi thêm tên miền vào giỏ hàng: " + e.getMessage(),
-                    "Lỗi",
-                    JOptionPane.ERROR_MESSAGE);
+            if (e.getMessage().contains("UQ_cart_user_domain")) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "❗ Tên miền " + domain.getName() + domain.getExtension() + " đã có trong giỏ hàng của bạn!\n\n" +
+                        "💡 Tip: Bạn có thể đúp chuột vào tên miền trong giỏ hàng để chỉnh sửa thời gian thuê.",
+                        "Thông báo",
+                        JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Lỗi khi thêm tên miền vào giỏ hàng: " + e.getMessage(),
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
@@ -1115,6 +1198,229 @@ public class MyDomainsPanel extends JPanel {
         public boolean stopCellEditing() {
             isPushed = false;
             return super.stopCellEditing();
+        }
+    }
+
+    /**
+     * Edit rental period for a domain in cart via double-click
+     */
+    private void editDomainRentalPeriod(int rowIndex) {
+        if (rowIndex < 0 || rowIndex >= cartDomains.size()) {
+            return;
+        }
+
+        Domain domain = cartDomains.get(rowIndex);
+        String domainName = domain.getName() + domain.getExtension();
+
+        // Create dialog for editing rental period
+        JDialog editDialog = new JDialog((JFrame) SwingUtilities.getWindowAncestor(this), "Chỉnh sửa thời gian thuê", true);
+        editDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        editDialog.setSize(450, 300);
+        editDialog.setLocationRelativeTo(this);
+        editDialog.setResizable(false);
+
+        // Header panel
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(PRIMARY_COLOR);
+        headerPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
+
+        JLabel titleLabel = new JLabel("📝 Chỉnh sửa thời gian thuê");
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        titleLabel.setForeground(Color.WHITE);
+
+        JLabel domainLabel = new JLabel(domainName);
+        domainLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        domainLabel.setForeground(new Color(220, 220, 220));
+
+        JPanel titlePanel = new JPanel(new BorderLayout());
+        titlePanel.setOpaque(false);
+        titlePanel.add(titleLabel, BorderLayout.NORTH);
+        titlePanel.add(domainLabel, BorderLayout.SOUTH);
+
+        headerPanel.add(titlePanel, BorderLayout.WEST);
+
+        // Main content panel
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.setBorder(new EmptyBorder(30, 30, 20, 30));
+        mainPanel.setBackground(Color.WHITE);
+
+        // Current rental period info
+        JLabel currentLabel = new JLabel("Thời gian thuê hiện tại:");
+        currentLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        currentLabel.setForeground(TEXT_PRIMARY);
+        currentLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        // Get current rental period
+        String currentPeriod = (String) tableModel.getValueAt(rowIndex, 4);
+        JLabel currentValueLabel = new JLabel(currentPeriod);
+        currentValueLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        currentValueLabel.setForeground(TEXT_SECONDARY);
+        currentValueLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        mainPanel.add(currentLabel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 5)));
+        mainPanel.add(currentValueLabel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // New rental period selection
+        JLabel newLabel = new JLabel("Chọn thời gian thuê mới:");
+        newLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        newLabel.setForeground(TEXT_PRIMARY);
+        newLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JComboBox<RentalPeriodItem> periodComboBox = new JComboBox<>();
+        periodComboBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        periodComboBox.setAlignmentX(Component.LEFT_ALIGNMENT);
+        periodComboBox.setMaximumSize(new Dimension(400, 35));
+
+        try {
+            List<RentalPeriod> periods = rentalPeriodRepository.getAllRentalPeriods();
+            for (RentalPeriod period : periods) {
+                double discount = period.getDiscount() * 100;
+                String label = period.getMonths() + " tháng";
+                if (discount > 0) {
+                    label += " (Tiết kiệm " + (int) discount + "%)";
+                }
+                RentalPeriodItem item = new RentalPeriodItem(period, label);
+                periodComboBox.addItem(item);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Lỗi khi tải danh sách gói thuê: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            editDialog.dispose();
+            return;
+        }
+
+        mainPanel.add(newLabel);
+        mainPanel.add(Box.createRigidArea(new Dimension(0, 10)));
+        mainPanel.add(periodComboBox);
+
+        // Button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 20));
+        buttonPanel.setBackground(Color.WHITE);
+
+        JButton saveButton = new JButton("Lưu thay đổi") {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(ACCENT_COLOR);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 8, 8);
+                super.paintComponent(g);
+            }
+        };
+        saveButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        saveButton.setForeground(Color.WHITE);
+        saveButton.setBorderPainted(false);
+        saveButton.setContentAreaFilled(false);
+        saveButton.setFocusPainted(false);
+        saveButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        saveButton.setPreferredSize(new Dimension(120, 35));
+
+        saveButton.addActionListener(e -> {
+            RentalPeriodItem selectedItem = (RentalPeriodItem) periodComboBox.getSelectedItem();
+            if (selectedItem != null) {
+                updateDomainRentalPeriod(domain.getId(), selectedItem.period);
+                editDialog.dispose();
+            }
+        });
+
+        JButton cancelButton = new JButton("Hủy");
+        cancelButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        cancelButton.setForeground(TEXT_SECONDARY);
+        cancelButton.setBorderPainted(false);
+        cancelButton.setContentAreaFilled(false);
+        cancelButton.setFocusPainted(false);
+        cancelButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        cancelButton.setPreferredSize(new Dimension(60, 35));
+        cancelButton.addActionListener(e -> editDialog.dispose());
+
+        buttonPanel.add(cancelButton);
+        buttonPanel.add(saveButton);
+
+        editDialog.add(headerPanel, BorderLayout.NORTH);
+        editDialog.add(mainPanel, BorderLayout.CENTER);
+        editDialog.add(buttonPanel, BorderLayout.SOUTH);
+
+        editDialog.setVisible(true);
+    }
+
+    /**
+     * Update rental period for a domain in cart
+     */
+    private void updateDomainRentalPeriod(int domainId, RentalPeriod newPeriod) {
+        try (Connection connection = DatabaseConnection.getConnection()) {
+            // Get domain base price
+            String getDomainQuery = "SELECT price FROM domains WHERE id = ?";
+            double basePrice = 0;
+            
+            try (PreparedStatement stmt = connection.prepareStatement(getDomainQuery)) {
+                stmt.setInt(1, domainId);
+                ResultSet rs = stmt.executeQuery();
+                if (rs.next()) {
+                    basePrice = rs.getDouble("price");
+                }
+            }
+
+            // Calculate new price
+            int months = newPeriod.getMonths();
+            double discount = newPeriod.getDiscount();
+            double finalPrice = basePrice * months * (1 - discount);
+
+            // Update cart
+            String updateQuery = "UPDATE cart SET rental_period_id = ?, price = ? WHERE user_id = ? AND domain_id = ?";
+            try (PreparedStatement stmt = connection.prepareStatement(updateQuery)) {
+                stmt.setInt(1, newPeriod.getId());
+                stmt.setDouble(2, finalPrice);
+                stmt.setInt(3, currentUser.getId());
+                stmt.setInt(4, domainId);
+
+                int result = stmt.executeUpdate();
+                if (result > 0) {
+                    JOptionPane.showMessageDialog(
+                            this,
+                            "✅ Đã cập nhật thời gian thuê thành công!\n\n" +
+                            "⏰ Thời gian mới: " + months + " tháng\n" +
+                            "💰 Giá mới: " + String.format("%,.0f VND", finalPrice),
+                            "Thành công",
+                            JOptionPane.INFORMATION_MESSAGE);
+
+                    // Reload data to refresh table
+                    loadDomainsFromDatabase();
+                } else {
+                    JOptionPane.showMessageDialog(
+                            this,
+                            "Không thể cập nhật thời gian thuê.",
+                            "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Lỗi khi cập nhật thời gian thuê: " + e.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * Helper class for rental period items in combo box
+     */
+    private static class RentalPeriodItem {
+        private RentalPeriod period;
+        private String label;
+
+        public RentalPeriodItem(RentalPeriod period, String label) {
+            this.period = period;
+            this.label = label;
+        }
+
+        @Override
+        public String toString() {
+            return label;
         }
     }
 }

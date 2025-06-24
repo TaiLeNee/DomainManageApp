@@ -333,11 +333,11 @@ public class Login extends JFrame {
 						utils.LoginPreferences.clearLoginInfo();
 					}
 					
-					JOptionPane.showMessageDialog(
-							Login.this,
-							"Đăng nhập thành công!",
-							"Thông báo",
-							JOptionPane.INFORMATION_MESSAGE);
+					// JOptionPane.showMessageDialog(
+					// 		Login.this,
+					// 		"Đăng nhập thành công!",
+					// 		"Thông báo",
+					// 		JOptionPane.INFORMATION_MESSAGE);
 
 					// Lấy thông tin người dùng từ session
 					utils.UserSession userSession = utils.UserSession.getInstance();

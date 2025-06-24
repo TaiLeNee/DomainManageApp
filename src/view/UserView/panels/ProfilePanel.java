@@ -10,21 +10,26 @@ import service.UserService;
 import java.awt.geom.RoundRectangle2D;
 
 public class ProfilePanel extends JPanel {
-    // Modern color palette - matching other panels
-    private static final Color BG_COLOR = new Color(248, 250, 252);
-    private static final Color PRIMARY_COLOR = new Color(41, 59, 95);
-    private static final Color SECONDARY_COLOR = new Color(66, 91, 138);
-    private static final Color ACCENT_COLOR = new Color(255, 111, 0);
-    private static final Color TEXT_PRIMARY = new Color(34, 40, 49);
-    private static final Color TEXT_SECONDARY = new Color(130, 139, 162);
-    private static final Color BORDER_COLOR = new Color(230, 235, 241);
+    // Enhanced modern color palette
+    private static final Color BG_COLOR = new Color(243, 246, 249);
+    private static final Color CARD_BG = Color.WHITE;
+    private static final Color PRIMARY_COLOR = new Color(79, 70, 229); // Indigo
+    private static final Color SECONDARY_COLOR = new Color(99, 102, 241); // Light indigo
+    private static final Color ACCENT_COLOR = new Color(16, 185, 129); // Emerald
+    private static final Color WARNING_COLOR = new Color(245, 158, 11); // Amber
+    private static final Color TEXT_PRIMARY = new Color(17, 24, 39);
+    private static final Color TEXT_SECONDARY = new Color(107, 114, 128);
+    private static final Color TEXT_MUTED = new Color(156, 163, 175);
+    private static final Color BORDER_COLOR = new Color(229, 231, 235);
+    private static final Color SHADOW_COLOR = new Color(0, 0, 0, 8);
 
-    // Modern fonts
-    private static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 22);
-    private static final Font FONT_SUBTITLE = new Font("Segoe UI", Font.BOLD, 18);
+    // Enhanced typography system
+    private static final Font FONT_TITLE = new Font("Segoe UI", Font.BOLD, 28);
+    private static final Font FONT_SUBTITLE = new Font("Segoe UI", Font.BOLD, 20);
+    private static final Font FONT_HEADING = new Font("Segoe UI", Font.BOLD, 16);
     private static final Font FONT_REGULAR = new Font("Segoe UI", Font.PLAIN, 14);
     private static final Font FONT_SMALL = new Font("Segoe UI", Font.PLAIN, 12);
-    private static final Font FONT_LABEL = new Font("Segoe UI", Font.BOLD, 14);
+    private static final Font FONT_LABEL = new Font("Segoe UI", Font.BOLD, 13);
 
     private User loggedInUser;
     private JFrame parentFrame;
@@ -42,267 +47,433 @@ public class ProfilePanel extends JPanel {
 
         setLayout(new BorderLayout());
         setBackground(BG_COLOR);
-        setBorder(new EmptyBorder(20, 20, 20, 20));
+        setBorder(new EmptyBorder(30, 30, 30, 30));
 
         initComponents();
     }
 
     private void initComponents() {
-        // Create page title
-        JLabel titleLabel = new JLabel("Thông tin tài khoản");
+        // Create page header
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setOpaque(false);
+        headerPanel.setBorder(new EmptyBorder(0, 0, 30, 0));
+
+        JLabel titleLabel = new JLabel("Hồ sơ cá nhân");
         titleLabel.setFont(FONT_TITLE);
         titleLabel.setForeground(TEXT_PRIMARY);
-        titleLabel.setBorder(new EmptyBorder(0, 0, 20, 0));
 
-        add(titleLabel, BorderLayout.NORTH);
+        JLabel subtitleLabel = new JLabel("Quản lý thông tin tài khoản và cài đặt bảo mật");
+        subtitleLabel.setFont(FONT_REGULAR);
+        subtitleLabel.setForeground(TEXT_SECONDARY);
 
-        // Create profile container
-        JPanel profileContainer = new JPanel(new BorderLayout(30, 0));
-        profileContainer.setBackground(Color.WHITE);
-        profileContainer.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0, 0, 0, 20), 1, true),
-                BorderFactory.createEmptyBorder(30, 30, 30, 30)));
+        JPanel titleContainer = new JPanel();
+        titleContainer.setLayout(new BoxLayout(titleContainer, BoxLayout.Y_AXIS));
+        titleContainer.setOpaque(false);
+        titleContainer.add(titleLabel);
+        titleContainer.add(Box.createRigidArea(new Dimension(0, 5)));
+        titleContainer.add(subtitleLabel);
 
-        // Left panel for avatar
-        JPanel avatarPanel = createAvatarPanel();
+        headerPanel.add(titleContainer, BorderLayout.WEST);
+        add(headerPanel, BorderLayout.NORTH);
 
-        // Right panel for info
-        JPanel infoPanel = createInfoPanel();
+        // Create main content with cards
+        JPanel mainContent = new JPanel();
+        mainContent.setLayout(new BoxLayout(mainContent, BoxLayout.Y_AXIS));
+        mainContent.setOpaque(false);
 
-        profileContainer.add(avatarPanel, BorderLayout.WEST);
-        profileContainer.add(infoPanel, BorderLayout.CENTER);
+        // Profile overview card
+        JPanel profileCard = createProfileOverviewCard();
+        
+        // Personal information card  
+        JPanel infoCard = createPersonalInfoCard();
 
-        // Add profile container to panel
-        add(profileContainer, BorderLayout.CENTER);
+        // Security card
+        JPanel securityCard = createSecurityCard();
+
+        mainContent.add(profileCard);
+        mainContent.add(Box.createRigidArea(new Dimension(0, 20)));
+        mainContent.add(infoCard);
+        mainContent.add(Box.createRigidArea(new Dimension(0, 20)));
+        mainContent.add(securityCard);
+
+        add(mainContent, BorderLayout.CENTER);
     }
 
-    private JPanel createAvatarPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setOpaque(false);
-        panel.setPreferredSize(new Dimension(200, 300));
+    private JPanel createCard(String title, String subtitle) {
+        JPanel card = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-        // Avatar container with rounded corners
+                // Draw shadow
+                g2.setColor(SHADOW_COLOR);
+                g2.fill(new RoundRectangle2D.Float(2, 2, getWidth() - 2, getHeight() - 2, 16, 16));
+
+                // Draw card background
+                g2.setColor(CARD_BG);
+                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth() - 2, getHeight() - 2, 16, 16));
+
+                // Draw subtle border
+                g2.setColor(BORDER_COLOR);
+                g2.setStroke(new BasicStroke(1));
+                g2.draw(new RoundRectangle2D.Float(0, 0, getWidth() - 3, getHeight() - 3, 16, 16));
+
+                g2.dispose();
+            }
+        };
+        card.setLayout(new BorderLayout());
+        card.setOpaque(false);
+        card.setBorder(new EmptyBorder(25, 25, 25, 25));
+
+        if (title != null) {
+            JPanel headerPanel = new JPanel(new BorderLayout());
+            headerPanel.setOpaque(false);
+            headerPanel.setBorder(new EmptyBorder(0, 0, 20, 0));
+
+            JLabel titleLabel = new JLabel(title);
+            titleLabel.setFont(FONT_SUBTITLE);
+            titleLabel.setForeground(TEXT_PRIMARY);
+
+            headerPanel.add(titleLabel, BorderLayout.WEST);
+
+            if (subtitle != null) {
+                JLabel subtitleLabel = new JLabel(subtitle);
+                subtitleLabel.setFont(FONT_SMALL);
+                subtitleLabel.setForeground(TEXT_MUTED);
+                
+                JPanel titleContainer = new JPanel();
+                titleContainer.setLayout(new BoxLayout(titleContainer, BoxLayout.Y_AXIS));
+                titleContainer.setOpaque(false);
+                titleContainer.add(titleLabel);
+                titleContainer.add(Box.createRigidArea(new Dimension(0, 3)));
+                titleContainer.add(subtitleLabel);
+
+                headerPanel.removeAll();
+                headerPanel.add(titleContainer, BorderLayout.WEST);
+            }
+
+            card.add(headerPanel, BorderLayout.NORTH);
+        }
+
+        return card;
+    }
+
+    private JPanel createProfileOverviewCard() {
+        JPanel card = createCard(null, null);
+        
+        // Custom layout for profile overview
+        JPanel content = new JPanel(new BorderLayout(30, 0));
+        content.setOpaque(false);
+
+        // Left side - Avatar section
+        JPanel avatarSection = createEnhancedAvatarSection();
+        
+        // Right side - Quick info
+        JPanel quickInfo = createQuickInfoSection();
+
+        content.add(avatarSection, BorderLayout.WEST);
+        content.add(quickInfo, BorderLayout.CENTER);
+
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel createEnhancedAvatarSection() {
+        JPanel section = new JPanel();
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+        section.setOpaque(false);
+        section.setPreferredSize(new Dimension(200, 250));
+
+        // Avatar container with enhanced styling
         JPanel avatarContainer = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                g2.setColor(new Color(245, 247, 250));
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 20, 20));
+                // Outer shadow
+                g2.setColor(new Color(0, 0, 0, 10));
+                g2.fillOval(5, 5, getWidth() - 10, getHeight() - 10);
+
+                // Avatar border
+                g2.setColor(Color.WHITE);
+                g2.fillOval(0, 0, getWidth() - 5, getHeight() - 5);
+
                 g2.dispose();
             }
         };
         avatarContainer.setLayout(new GridBagLayout());
-        avatarContainer.setPreferredSize(new Dimension(180, 180));
-        avatarContainer.setMaximumSize(new Dimension(180, 180));
+        avatarContainer.setPreferredSize(new Dimension(160, 160));
+        avatarContainer.setMaximumSize(new Dimension(160, 160));
         avatarContainer.setOpaque(false);
 
         // Avatar image
         avatarLabel = new JLabel();
         avatarLabel.setHorizontalAlignment(SwingConstants.CENTER);
-        avatarLabel.setIcon(loadAvatarImage("src\\img\\user-icon.png"));
+        avatarLabel.setIcon(loadEnhancedAvatarImage("src\\img\\user-icon.png"));
         avatarContainer.add(avatarLabel);
 
-        // Username display below avatar
+        // User name and username
+        JLabel displayName = new JLabel(loggedInUser.getFullName());
+        displayName.setFont(FONT_HEADING);
+        displayName.setForeground(TEXT_PRIMARY);
+        displayName.setAlignmentX(Component.CENTER_ALIGNMENT);
+
         JLabel usernameDisplay = new JLabel("@" + loggedInUser.getUsername());
         usernameDisplay.setFont(FONT_REGULAR);
         usernameDisplay.setForeground(TEXT_SECONDARY);
         usernameDisplay.setAlignmentX(Component.CENTER_ALIGNMENT);
 
-        // Button to change avatar - with modern styling
-        JButton changeAvatarButton = new JButton("Đổi ảnh đại diện") {
+        // Change avatar button with modern styling
+        JButton changeAvatarBtn = createModernButton("Thay đổi ảnh", SECONDARY_COLOR, false);
+        changeAvatarBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        changeAvatarBtn.addActionListener(e -> changeAvatar());
+
+        // Assembly
+        section.add(avatarContainer);
+        section.add(Box.createRigidArea(new Dimension(0, 15)));
+        section.add(displayName);
+        section.add(Box.createRigidArea(new Dimension(0, 5)));
+        section.add(usernameDisplay);
+        section.add(Box.createRigidArea(new Dimension(0, 20)));
+        section.add(changeAvatarBtn);
+
+        return section;
+    }
+
+    private JPanel createQuickInfoSection() {
+        JPanel section = new JPanel();
+        section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+        section.setOpaque(false);
+
+        // Status badge
+        JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        statusPanel.setOpaque(false);
+        
+        JLabel statusBadge = new JLabel("Đang hoạt động") {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                // Draw border only
-                g2.setColor(SECONDARY_COLOR);
-                g2.draw(new RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, 20, 20));
-
+                
+                g2.setColor(new Color(34, 197, 94, 20));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 20, 20);
+                
+                g2.setColor(new Color(34, 197, 94));
+                g2.setStroke(new BasicStroke(1));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
+                
                 super.paintComponent(g2);
             }
         };
-        changeAvatarButton.setFont(FONT_REGULAR);
-        changeAvatarButton.setForeground(SECONDARY_COLOR);
-        changeAvatarButton.setBorderPainted(false);
-        changeAvatarButton.setContentAreaFilled(false);
-        changeAvatarButton.setFocusPainted(false);
-        changeAvatarButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        changeAvatarButton.setAlignmentX(Component.CENTER_ALIGNMENT);
-        changeAvatarButton.setMaximumSize(new Dimension(200, 40));
-        changeAvatarButton.addActionListener(e -> changeAvatar());
+        statusBadge.setFont(FONT_SMALL);
+        statusBadge.setForeground(new Color(34, 197, 94));
+        statusBadge.setBorder(new EmptyBorder(6, 12, 6, 12));
+        statusBadge.setOpaque(false);
+        
+        statusPanel.add(statusBadge);
 
-        // Add all components to panel with spacing
-        panel.add(avatarContainer);
-        panel.add(Box.createRigidArea(new Dimension(0, 15)));
-        panel.add(usernameDisplay);
-        panel.add(Box.createRigidArea(new Dimension(0, 20)));
-        panel.add(changeAvatarButton);
+        // Quick stats
+        JPanel statsGrid = new JPanel(new GridLayout(2, 2, 20, 15));
+        statsGrid.setOpaque(false);
+        statsGrid.setBorder(new EmptyBorder(20, 0, 0, 0));
 
-        return panel;
+        statsGrid.add(createStatItem("Vai trò", loggedInUser.getRole()));
+        statsGrid.add(createStatItem("Tham gia", "Dec 2023"));
+        statsGrid.add(createStatItem("Domain", "5 active"));
+        statsGrid.add(createStatItem("Đăng nhập", "Hôm nay"));
+
+        section.add(statusPanel);
+        section.add(statsGrid);
+        
+        return section;
     }
 
-    private JPanel createInfoPanel() {
-        JPanel panel = new JPanel();
-        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setOpaque(false);
+    private JPanel createStatItem(String label, String value) {
+        JPanel item = new JPanel();
+        item.setLayout(new BoxLayout(item, BoxLayout.Y_AXIS));
+        item.setOpaque(false);
 
-        // Title section
-        JPanel titlePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        titlePanel.setOpaque(false);
+        JLabel valueLabel = new JLabel(value);
+        valueLabel.setFont(FONT_HEADING);
+        valueLabel.setForeground(TEXT_PRIMARY);
+        valueLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel infoTitle = new JLabel("Thông tin cá nhân");
-        infoTitle.setFont(FONT_SUBTITLE);
-        infoTitle.setForeground(TEXT_PRIMARY);
+        JLabel labelText = new JLabel(label);
+        labelText.setFont(FONT_SMALL);
+        labelText.setForeground(TEXT_MUTED);
+        labelText.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        titlePanel.add(infoTitle);
+        item.add(valueLabel);
+        item.add(Box.createRigidArea(new Dimension(0, 2)));
+        item.add(labelText);
 
-        // Info fields
-        JPanel fieldsPanel = new JPanel();
-        fieldsPanel.setLayout(new BoxLayout(fieldsPanel, BoxLayout.Y_AXIS));
-        fieldsPanel.setOpaque(false);
-        fieldsPanel.setBorder(new EmptyBorder(15, 0, 20, 0));
+        return item;
+    }
 
-        // Name field
-        JPanel namePanel = createInfoField("Họ và tên");
-        nameValue = new JLabel(loggedInUser.getFullName());
-        nameValue.setFont(FONT_REGULAR);
-        nameValue.setForeground(TEXT_PRIMARY);
-        namePanel.add(nameValue);
+    private JPanel createPersonalInfoCard() {
+        JPanel card = createCard("Thông tin cá nhân", "Quản lý thông tin hiển thị của bạn");
+        
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setOpaque(false);
 
-        // Email field
-        JPanel emailPanel = createInfoField("Email");
-        emailValue = new JLabel(loggedInUser.getEmail());
-        emailValue.setFont(FONT_REGULAR);
-        emailValue.setForeground(TEXT_PRIMARY);
-        emailPanel.add(emailValue);
+        // Info fields with enhanced styling
+        content.add(createEnhancedInfoField("Họ và tên", loggedInUser.getFullName()));
+        content.add(Box.createRigidArea(new Dimension(0, 15)));
+        content.add(createEnhancedInfoField("Email", loggedInUser.getEmail()));
+        content.add(Box.createRigidArea(new Dimension(0, 15)));
+        content.add(createEnhancedInfoField("Tên đăng nhập", loggedInUser.getUsername()));
 
-        // Username field
-        JPanel usernamePanel = createInfoField("Tài khoản");
-        usernameValue = new JLabel(loggedInUser.getUsername());
-        usernameValue.setFont(FONT_REGULAR);
-        usernameValue.setForeground(TEXT_PRIMARY);
-        usernamePanel.add(usernameValue);
-
-        // Role field
-        JPanel rolePanel = createInfoField("Vai trò");
-        roleValue = new JLabel(loggedInUser.getRole());
-        roleValue.setFont(FONT_REGULAR);
-        roleValue.setForeground(TEXT_PRIMARY);
-        rolePanel.add(roleValue);
-
-        // Last login field
-        JPanel lastLoginPanel = createInfoField("Đăng nhập gần đây");
-        lastLoginValue = new JLabel("Hôm nay, 10:15 AM");
-        lastLoginValue.setFont(FONT_REGULAR);
-        lastLoginValue.setForeground(TEXT_PRIMARY);
-        lastLoginPanel.add(lastLoginValue);
-
-        fieldsPanel.add(namePanel);
-        fieldsPanel.add(Box.createRigidArea(new Dimension(0, 15)));
-        fieldsPanel.add(emailPanel);
-        fieldsPanel.add(Box.createRigidArea(new Dimension(0, 15)));
-        fieldsPanel.add(usernamePanel);
-        fieldsPanel.add(Box.createRigidArea(new Dimension(0, 15)));
-        fieldsPanel.add(rolePanel);
-        fieldsPanel.add(Box.createRigidArea(new Dimension(0, 15)));
-        fieldsPanel.add(lastLoginPanel);
-
-        // Button section
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        // Action button
+        content.add(Box.createRigidArea(new Dimension(0, 25)));
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         buttonPanel.setOpaque(false);
-        buttonPanel.setBorder(new EmptyBorder(15, 0, 0, 0));
+        
+        JButton editBtn = createModernButton("Chỉnh sửa thông tin", PRIMARY_COLOR, true);
+        editBtn.addActionListener(e -> openEditDialog());
+        buttonPanel.add(editBtn);
+        
+        content.add(buttonPanel);
 
-        // Edit button with gradient
-        JButton editButton = new JButton("Chỉnh sửa thông tin") {
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel createSecurityCard() {
+        JPanel card = createCard("Bảo mật tài khoản", "Quản lý mật khẩu và cài đặt bảo mật");
+        
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setOpaque(false);
+
+        // Security items
+        content.add(createSecurityItem("Mật khẩu", "Được cập nhật 30 ngày trước", "Đổi mật khẩu"));
+        content.add(Box.createRigidArea(new Dimension(0, 15)));
+        content.add(createSecurityItem("Đăng nhập gần đây", "Hôm nay, 10:15 AM", "Xem lịch sử"));
+
+        card.add(content, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel createSecurityItem(String title, String description, String actionText) {
+        JPanel item = new JPanel(new BorderLayout());
+        item.setOpaque(false);
+        item.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0, 0, 0, 5)),
+            new EmptyBorder(15, 0, 15, 0)
+        ));
+
+        JPanel infoPanel = new JPanel();
+        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
+        infoPanel.setOpaque(false);
+
+        JLabel titleLabel = new JLabel(title);
+        titleLabel.setFont(FONT_REGULAR);
+        titleLabel.setForeground(TEXT_PRIMARY);
+
+        JLabel descLabel = new JLabel(description);
+        descLabel.setFont(FONT_SMALL);
+        descLabel.setForeground(TEXT_MUTED);
+
+        infoPanel.add(titleLabel);
+        infoPanel.add(Box.createRigidArea(new Dimension(0, 3)));
+        infoPanel.add(descLabel);
+
+        JButton actionBtn = createModernButton(actionText, 
+            actionText.equals("Đổi mật khẩu") ? WARNING_COLOR : SECONDARY_COLOR, false);
+        if (actionText.equals("Đổi mật khẩu")) {
+            actionBtn.addActionListener(e -> openChangePasswordDialog());
+        }
+
+        item.add(infoPanel, BorderLayout.CENTER);
+        item.add(actionBtn, BorderLayout.EAST);
+
+        return item;
+    }
+
+    private JPanel createEnhancedInfoField(String label, String value) {
+        JPanel field = new JPanel(new BorderLayout());
+        field.setOpaque(false);
+        field.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(0, 0, 0, 5)),
+            new EmptyBorder(12, 0, 12, 0)
+        ));
+
+        JLabel labelText = new JLabel(label);
+        labelText.setFont(FONT_LABEL);
+        labelText.setForeground(TEXT_SECONDARY);
+
+        JLabel valueText = new JLabel(value);
+        valueText.setFont(FONT_REGULAR);
+        valueText.setForeground(TEXT_PRIMARY);
+
+        field.add(labelText, BorderLayout.WEST);
+        field.add(valueText, BorderLayout.EAST);
+
+        return field;
+    }
+
+    private JButton createModernButton(String text, Color color, boolean isPrimary) {
+        JButton button = new JButton(text) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                // Create gradient
-                GradientPaint gradient = new GradientPaint(
-                        0, 0, PRIMARY_COLOR,
-                        getWidth(), getHeight(), SECONDARY_COLOR);
-                g2.setPaint(gradient);
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 20, 20));
+                if (isPrimary) {
+                    // Primary button with gradient
+                    GradientPaint gradient = new GradientPaint(
+                        0, 0, color,
+                        getWidth(), getHeight(), color.darker());
+                    g2.setPaint(gradient);
+                    g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 10, 10));
+                } else {
+                    // Secondary button with border
+                    g2.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), 10));
+                    g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 10, 10));
+                    
+                    g2.setColor(color);
+                    g2.setStroke(new BasicStroke(1.5f));
+                    g2.draw(new RoundRectangle2D.Float(0, 0, getWidth() - 1, getHeight() - 1, 10, 10));
+                }
 
                 super.paintComponent(g2);
             }
         };
-        editButton.setFont(FONT_REGULAR);
-        editButton.setForeground(Color.WHITE);
-        editButton.setBorderPainted(false);
-        editButton.setContentAreaFilled(false);
-        editButton.setFocusPainted(false);
-        editButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        editButton.addActionListener(e -> openEditDialog());
 
-        // Password button
-        JButton passwordButton = new JButton("Đổi mật khẩu") {
+        button.setFont(FONT_REGULAR);
+        button.setForeground(isPrimary ? Color.WHITE : color);
+        button.setBorderPainted(false);
+        button.setContentAreaFilled(false);
+        button.setFocusPainted(false);
+        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        button.setBorder(new EmptyBorder(10, 20, 10, 20));
+
+        // Hover effect
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                // Create gradient
-                GradientPaint gradient = new GradientPaint(
-                        0, 0, ACCENT_COLOR,
-                        getWidth(), getHeight(), new Color(255, 132, 41));
-                g2.setPaint(gradient);
-                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 20, 20));
-
-                super.paintComponent(g2);
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                button.setOpaque(false);
+                button.repaint();
             }
-        };
-        passwordButton.setFont(FONT_REGULAR);
-        passwordButton.setForeground(Color.WHITE);
-        passwordButton.setBorderPainted(false);
-        passwordButton.setContentAreaFilled(false);
-        passwordButton.setFocusPainted(false);
-        passwordButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        passwordButton.addActionListener(e -> openChangePasswordDialog());
 
-        buttonPanel.add(editButton);
-        buttonPanel.add(Box.createRigidArea(new Dimension(15, 0)));
-        buttonPanel.add(passwordButton);
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                button.setOpaque(false);
+                button.repaint();
+            }
+        });
 
-        // Add all sections to main panel
-        panel.add(titlePanel);
-        panel.add(fieldsPanel);
-        panel.add(buttonPanel);
-
-        return panel;
+        return button;
     }
 
-    private JPanel createInfoField(String labelText) {
-        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
-        panel.setOpaque(false);
-        panel.setMaximumSize(new Dimension(500, 25));
-
-        // Label with grid to ensure consistent width
-        JPanel labelPanel = new JPanel(new GridLayout(1, 1));
-        labelPanel.setOpaque(false);
-        labelPanel.setPreferredSize(new Dimension(150, 20));
-
-        JLabel label = new JLabel(labelText + ":");
-        label.setFont(FONT_LABEL);
-        label.setForeground(TEXT_SECONDARY);
-        labelPanel.add(label);
-
-        panel.add(labelPanel);
-
-        return panel;
-    }
-
-    private ImageIcon loadAvatarImage(String path) {
+    private ImageIcon loadEnhancedAvatarImage(String path) {
         File file = new File(path);
         if (file.exists()) {
             Image image = new ImageIcon(path).getImage();
-            // Create circular crop
+            // Create circular crop with enhanced styling
             BufferedImage circleBuffer = new BufferedImage(150, 150, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g2 = circleBuffer.createGraphics();
 
@@ -313,18 +484,24 @@ public class ProfilePanel extends JPanel {
             g2.dispose();
             return new ImageIcon(circleBuffer);
         } else {
-            // Create default avatar with initials
+            // Create enhanced default avatar with initials
             BufferedImage avatar = new BufferedImage(150, 150, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g2 = avatar.createGraphics();
 
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setPaint(new GradientPaint(0, 0, SECONDARY_COLOR, 150, 150, PRIMARY_COLOR));
+            
+            // Create modern gradient background
+            GradientPaint gradient = new GradientPaint(
+                0, 0, PRIMARY_COLOR,
+                150, 150, SECONDARY_COLOR
+            );
+            g2.setPaint(gradient);
             g2.fillOval(0, 0, 150, 150);
 
-            // Add initials
+            // Add initials with better typography
             String initials = getInitials(loggedInUser.getFullName());
             g2.setColor(Color.WHITE);
-            g2.setFont(new Font("Segoe UI", Font.BOLD, 50));
+            g2.setFont(new Font("Segoe UI", Font.BOLD, 48));
             FontMetrics fm = g2.getFontMetrics();
             int textWidth = fm.stringWidth(initials);
             int textHeight = fm.getHeight();
@@ -356,117 +533,78 @@ public class ProfilePanel extends JPanel {
         int result = fileChooser.showOpenDialog(this);
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser.getSelectedFile();
-            avatarLabel.setIcon(loadAvatarImage(selectedFile.getAbsolutePath()));
+            avatarLabel.setIcon(loadEnhancedAvatarImage(selectedFile.getAbsolutePath()));
             JOptionPane.showMessageDialog(this, "Đổi ảnh đại diện thành công!");
         }
     }
 
     private void openEditDialog() {
-        // Create modern styled dialog
-        JDialog editDialog = new JDialog(parentFrame, "Chỉnh sửa thông tin", true);
-        editDialog.setSize(450, 280);
+        // Create enhanced modern dialog
+        JDialog editDialog = new JDialog(parentFrame, "Chỉnh sửa thông tin cá nhân", true);
+        editDialog.setSize(500, 320);
         editDialog.setLocationRelativeTo(parentFrame);
+        editDialog.setResizable(false);
 
         JPanel mainPanel = new JPanel();
         mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
-        mainPanel.setBackground(Color.WHITE);
-        mainPanel.setBorder(new EmptyBorder(25, 25, 25, 25));
+        mainPanel.setBackground(CARD_BG);
+        mainPanel.setBorder(new EmptyBorder(30, 30, 30, 30));
 
-        // Dialog title
-        JLabel titleLabel = new JLabel("Chỉnh sửa thông tin cá nhân");
+        // Dialog title with icon
+        JPanel titlePanel = new JPanel(new BorderLayout());
+        titlePanel.setOpaque(false);
+        titlePanel.setBorder(new EmptyBorder(0, 0, 25, 0));
+
+        JLabel titleLabel = new JLabel("Chỉnh sửa thông tin");
         titleLabel.setFont(FONT_SUBTITLE);
         titleLabel.setForeground(TEXT_PRIMARY);
-        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // Form fields
-        JPanel formPanel = new JPanel(new GridLayout(2, 1, 0, 15));
+        JLabel subtitleLabel = new JLabel("Cập nhật thông tin hiển thị của bạn");
+        subtitleLabel.setFont(FONT_SMALL);
+        subtitleLabel.setForeground(TEXT_MUTED);
+
+        JPanel titleContainer = new JPanel();
+        titleContainer.setLayout(new BoxLayout(titleContainer, BoxLayout.Y_AXIS));
+        titleContainer.setOpaque(false);
+        titleContainer.add(titleLabel);
+        titleContainer.add(Box.createRigidArea(new Dimension(0, 5)));
+        titleContainer.add(subtitleLabel);
+
+        titlePanel.add(titleContainer, BorderLayout.WEST);
+
+        // Enhanced form fields
+        JPanel formPanel = new JPanel();
+        formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
         formPanel.setOpaque(false);
-        formPanel.setBorder(new EmptyBorder(20, 0, 20, 0));
-        formPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        formPanel.setBorder(new EmptyBorder(0, 0, 25, 0));
 
-        // Name field
-        JPanel nameFieldPanel = new JPanel(new BorderLayout());
-        nameFieldPanel.setOpaque(false);
-
-        JLabel nameLabel = new JLabel("Họ và tên");
-        nameLabel.setFont(FONT_SMALL);
-        nameLabel.setForeground(TEXT_SECONDARY);
-
-        JTextField nameField = new JTextField(loggedInUser.getFullName());
-        nameField.setFont(FONT_REGULAR);
-        nameField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_COLOR),
-                BorderFactory.createEmptyBorder(5, 0, 5, 0)));
-
-        nameFieldPanel.add(nameLabel, BorderLayout.NORTH);
-        nameFieldPanel.add(nameField, BorderLayout.CENTER);
-
-        // Email field
-        JPanel emailFieldPanel = new JPanel(new BorderLayout());
-        emailFieldPanel.setOpaque(false);
-
-        JLabel emailLabel = new JLabel("Email");
-        emailLabel.setFont(FONT_SMALL);
-        emailLabel.setForeground(TEXT_SECONDARY);
-
-        JTextField emailField = new JTextField(loggedInUser.getEmail());
-        emailField.setFont(FONT_REGULAR);
-        emailField.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_COLOR),
-                BorderFactory.createEmptyBorder(5, 0, 5, 0)));
-
-        emailFieldPanel.add(emailLabel, BorderLayout.NORTH);
-        emailFieldPanel.add(emailField, BorderLayout.CENTER);
+        // Name field with modern styling
+        JPanel nameFieldPanel = createEnhancedFormField("Họ và tên", loggedInUser.getFullName());
+        JTextField nameField = findTextField(nameFieldPanel);
 
         formPanel.add(nameFieldPanel);
+        formPanel.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // Email field with modern styling
+        JPanel emailFieldPanel = createEnhancedFormField("Email", loggedInUser.getEmail());
+        JTextField emailField = findTextField(emailFieldPanel);
+
         formPanel.add(emailFieldPanel);
 
-        // Button panel
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        // Enhanced button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         buttonPanel.setOpaque(false);
-        buttonPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JButton cancelBtn = new JButton("Hủy");
-        cancelBtn.setFont(FONT_REGULAR);
-        cancelBtn.setForeground(TEXT_PRIMARY);
-        cancelBtn.setBackground(Color.WHITE);
-        cancelBtn.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER_COLOR),
-                BorderFactory.createEmptyBorder(8, 15, 8, 15)));
-        cancelBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        JButton cancelBtn = createModernButton("Hủy", TEXT_SECONDARY, false);
         cancelBtn.addActionListener(e -> editDialog.dispose());
 
-        JButton saveBtn = new JButton("Lưu thay đổi") {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-                // Create gradient
-                GradientPaint gradient = new GradientPaint(
-                        0, 0, PRIMARY_COLOR,
-                        getWidth(), getHeight(), SECONDARY_COLOR);
-                g2.setPaint(gradient);
-                g2.fillRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 20, 20);
-
-                super.paintComponent(g2);
-            }
-        };
-        saveBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        saveBtn.setForeground(Color.WHITE);
-        saveBtn.setBorderPainted(false);
-        saveBtn.setContentAreaFilled(false);
-        saveBtn.setFocusPainted(false);
-        saveBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        JButton saveBtn = createModernButton("Lưu thay đổi", PRIMARY_COLOR, true);
         saveBtn.addActionListener(e -> {
             String newName = nameField.getText().trim();
             String newEmail = emailField.getText().trim();
 
             if (newName.isEmpty() || newEmail.isEmpty()) {
-                JOptionPane.showMessageDialog(editDialog,
-                        "Vui lòng điền đầy đủ thông tin!",
-                        "Thông tin không hợp lệ",
-                        JOptionPane.ERROR_MESSAGE);
+                showStyledMessage(editDialog, "Vui lòng điền đầy đủ thông tin!", "Thông tin không hợp lệ", false);
                 return;
             }
 
@@ -475,36 +613,100 @@ public class ProfilePanel extends JPanel {
             boolean success = userService.updateUserInfo(loggedInUser.getId(), newName, newEmail);
 
             if (success) {
-                // Update displayed information
-                nameValue.setText(newName);
-                emailValue.setText(newEmail);
-
-                // Show success message with modern style
-                JOptionPane.showMessageDialog(editDialog,
-                        "Thông tin đã được cập nhật thành công!",
-                        "Thành công",
-                        JOptionPane.INFORMATION_MESSAGE);
-
+                // Update displayed information in UI
+                loggedInUser.setFullName(newName);
+                loggedInUser.setEmail(newEmail);
+                
+                showStyledMessage(editDialog, "Thông tin đã được cập nhật thành công!", "Thành công", true);
                 editDialog.dispose();
+                
+                // Refresh the panel
+                revalidate();
+                repaint();
             } else {
-                JOptionPane.showMessageDialog(editDialog,
-                        "Không thể cập nhật thông tin. Vui lòng thử lại sau.",
-                        "Lỗi",
-                        JOptionPane.ERROR_MESSAGE);
+                showStyledMessage(editDialog, "Không thể cập nhật thông tin. Vui lòng thử lại sau.", "Lỗi", false);
             }
         });
 
         buttonPanel.add(cancelBtn);
         buttonPanel.add(saveBtn);
 
-        // Add components to main panel
-        mainPanel.add(titleLabel);
+        // Assembly
+        mainPanel.add(titlePanel);
         mainPanel.add(formPanel);
-        mainPanel.add(Box.createVerticalGlue());
         mainPanel.add(buttonPanel);
 
         editDialog.add(mainPanel);
         editDialog.setVisible(true);
+    }
+
+    private JPanel createEnhancedFormField(String labelText, String value) {
+        JPanel fieldPanel = new JPanel(new BorderLayout());
+        fieldPanel.setOpaque(false);
+
+        JLabel label = new JLabel(labelText);
+        label.setFont(FONT_LABEL);
+        label.setForeground(TEXT_SECONDARY);
+        label.setBorder(new EmptyBorder(0, 0, 8, 0));
+
+        JTextField textField = new JTextField(value) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                
+                // Background
+                g2.setColor(getBackground());
+                g2.fill(new RoundRectangle2D.Float(0, 0, getWidth(), getHeight(), 8, 8));
+                
+                super.paintComponent(g2);
+            }
+        };
+        textField.setFont(FONT_REGULAR);
+        textField.setForeground(TEXT_PRIMARY);
+        textField.setBackground(new Color(249, 250, 251));
+        textField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER_COLOR, 1),
+            BorderFactory.createEmptyBorder(12, 15, 12, 15)
+        ));
+
+        // Focus styling
+        textField.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent e) {
+                textField.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(PRIMARY_COLOR, 2),
+                    BorderFactory.createEmptyBorder(11, 14, 11, 14)
+                ));
+            }
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                textField.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(BORDER_COLOR, 1),
+                    BorderFactory.createEmptyBorder(12, 15, 12, 15)
+                ));
+            }
+        });
+
+        fieldPanel.add(label, BorderLayout.NORTH);
+        fieldPanel.add(textField, BorderLayout.CENTER);
+
+        return fieldPanel;
+    }
+
+    private JTextField findTextField(JPanel panel) {
+        for (Component comp : panel.getComponents()) {
+            if (comp instanceof JTextField) {
+                return (JTextField) comp;
+            }
+        }
+        return null;
+    }
+
+    private void showStyledMessage(Component parent, String message, String title, boolean isSuccess) {
+        JOptionPane.showMessageDialog(parent, message, title, 
+            isSuccess ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.ERROR_MESSAGE);
     }
 
     private void openChangePasswordDialog() {

@@ -2,21 +2,13 @@ package view.UserView;
 
 import java.awt.*;
 import java.awt.event.*;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import model.User;
-import repository.DatabaseConnection;
 import service.DomainExtensionService;
 import utils.UserSession;
 import view.UserView.panels.*;
@@ -348,7 +340,7 @@ public class UserDashboardView extends JFrame {
         // Create menu buttons with modern design
         String[][] menuItems = {
                 { "Trang chính", "dashboard.png", DASHBOARD_PANEL },
-                { "Tạo tên miền", "search.png", SEARCH_DOMAIN_PANEL },
+                { "Tìm kiếm tên miền", "search.png", SEARCH_DOMAIN_PANEL },
                 { "Tên miền đã thuê", "domain.png", ORDERS_PANEL },
                 { "Giỏ hàng của tôi", "cart.png", MY_DOMAINS_PANEL }
         };
@@ -473,7 +465,7 @@ public class UserDashboardView extends JFrame {
             // Handle special cases
             if (ORDERS_PANEL.equals(panelName)) {
                 OrdersPanel ordersPanel = (OrdersPanel) ((JPanel) mainContentPanel.getComponent(3)).getComponent(0);
-                updateOrdersPanel(ordersPanel); // Load data
+                ordersPanel.refresh(); // Load data using the correct method
             } else if (MY_DOMAINS_PANEL.equals(panelName)) {
                 MyDomainsPanel myDomainsPanel = (MyDomainsPanel) ((JPanel) mainContentPanel.getComponent(2))
                         .getComponent(0);
@@ -510,49 +502,7 @@ public class UserDashboardView extends JFrame {
         cardLayout.show(mainContentPanel, cardName);
     }
 
-    /**
-     * Update data for the orders panel.
-     */
-    private void updateOrdersPanel(OrdersPanel ordersPanel) {
-        try (Connection connection = DatabaseConnection.getConnection()) {
-            // Sửa truy vấn để không sử dụng domain_id mà sử dụng JOIN qua order_details
-            String query = "SELECT od.domain_name + od.domain_extension AS domain_name, o.total_price, o.created_at, o.status "
-                    +
-                    "FROM orders o " +
-                    "JOIN order_details od ON o.id = od.order_id " +
-                    "WHERE o.buyer_id = ?";
 
-            try (PreparedStatement stmt = connection.prepareStatement(query)) {
-                stmt.setInt(1, loggedInUser.getId()); // Get current user ID
-                ResultSet rs = stmt.executeQuery();
-
-                ordersPanel.clearTable(); // Clear old data
-
-                while (rs.next()) {
-                    String domainName = rs.getString("domain_name");
-                    double totalPrice = rs.getDouble("total_price");
-                    Timestamp paymentDate = rs.getTimestamp("created_at");
-                    String status = rs.getString("status");
-
-                    String formattedPrice = String.format("%,.0f VND", totalPrice);
-
-                    // Convert Timestamp to String using DateTimeFormatter
-                    String formattedDate = "";
-                    if (paymentDate != null) {
-                        LocalDateTime dateTime = paymentDate.toLocalDateTime();
-                        formattedDate = dateTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"));
-                    }
-
-                    // Add data to OrdersPanel
-                    ordersPanel.addDomainOrder(domainName, formattedPrice, formattedDate, status);
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi khi tải thông tin đơn hàng: " + e.getMessage(), "Lỗi",
-                    JOptionPane.ERROR_MESSAGE);
-        }
-    }
 
     /**
      * Main method to run the application.
